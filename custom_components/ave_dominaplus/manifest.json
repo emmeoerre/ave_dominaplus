@@ -6,5 +6,5 @@
   "documentation": "https://www.home-assistant.io/integrations/ave_dominaplus",
   "integration_type": "hub",
   "iot_class": "local_push",
-  "quality_scale": "bronze"
+  "version": "1.0.0"
 }
