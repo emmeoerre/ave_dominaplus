@@ -1,0 +1,52 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "data": {
+          "host": "[%key:common::config_flow::data::host%]",
+          "username": "[%key:common::config_flow::data::username%]",
+          "password": "[%key:common::config_flow::data::password%]",
+          "ip_address": "Webserver IP address",
+          "get_entities_names": "Get entities names from webserver",
+          "fetch_sensor_areas": "Get antitheft sensor areas",
+          "fetch_sensors": "Get individual antitheft sensors",
+          "fetch_lights": "Get lights"
+        },
+        "data_description": {
+          "ip_address": "The webserver must be reachable from the Home Assistant instance.",
+          "get_entities_names": "Will use the entities names and IDs as set in the domina plus system. You may want to it off whn you want to change them",
+          "fetch_sensors": "Will be discovered at the first event they fire. May create many entries in big systems"
+        },
+        "description": "Set a connection to the AVE dominaplus webserver.",
+        "title": "Add AVE dominaplus"
+      },
+      "reconfigure": {
+        "data": {
+          "host": "[%key:common::config_flow::data::host%]",
+          "username": "[%key:common::config_flow::data::username%]",
+          "password": "[%key:common::config_flow::data::password%]",
+          "ip_address": "Webserver IP address",
+          "get_entities_names": "Get entities names from webserver",
+          "fetch_sensor_areas": "Get antitheft sensor areas",
+          "fetch_sensors": "Get individual antitheft sensors",
+          "fetch_lights": "Get lights"
+        },
+        "data_description": {
+          "ip_address": "The webserver must be reachable from the Home Assistant instance.",
+          "get_entities_names": "Will use the entities names and IDs as set in the domina plus system. You may want to it off whn you want to change them",
+          "fetch_sensors": "Will be discovered at the first event they fire. May create many entries in big systems"
+        },
+        "description": "Change the settings of the AVE dominaplus integration.",
+        "title": "Reconfigure AVE dominaplus"
+      }
+    },
+    "error": {
+      "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]",
+      "invalid_auth": "[%key:common::config_flow::error::invalid_auth%]",
+      "unknown": "[%key:common::config_flow::error::unknown%]"
+    },
+    "abort": {
+      "already_configured": "[%key:common::config_flow::abort::already_configured_device%]"
+    }
+  }
+}
