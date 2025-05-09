@@ -172,3 +172,7 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+
+#Home assistant core files not needed for custom compoknents
+quality_scale.yaml
