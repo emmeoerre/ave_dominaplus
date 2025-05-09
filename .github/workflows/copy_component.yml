@@ -12,6 +12,9 @@ jobs:
         with:
           ref: develop
           path: ave_dominaplus
+          token: ${{ secrets.GITHUB_TOKEN }}
+          # For more permissions, use a personal access token (PAT) instead:
+          # token: ${{ secrets.PAT_TOKEN }}
 
       - name: Checkout source repository
         uses: actions/checkout@v3
@@ -47,4 +50,5 @@ jobs:
         run: |
           cd ave_dominaplus
           git commit -m "Update AVE DominaPlus component from core repository"
-          git push
+          # Use token for authentication when pushing
+          git push https://${{ secrets.GITHUB_TOKEN }}@github.com/emmeoerre/ave_dominaplus.git HEAD:develop
