@@ -1,0 +1,10 @@
+{
+  "domain": "ave_dominaplus",
+  "name": "AVE dominaplus",
+  "codeowners": ["@emmeoerre"],
+  "config_flow": true,
+  "documentation": "https://www.home-assistant.io/integrations/ave_dominaplus",
+  "integration_type": "hub",
+  "iot_class": "local_push",
+  "version": "1.0.0"
+}
