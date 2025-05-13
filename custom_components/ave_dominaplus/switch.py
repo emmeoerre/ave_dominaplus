@@ -56,18 +56,21 @@ async def adopt_existing_sensors(server: AveWebServer, entry: ConfigEntry) -> No
                 # Create a new sensor instance
                 family = int(entity.unique_id.split("_")[2])
                 ave_device_id = int(entity.unique_id.split("_")[3])
-                # Check if the family is supported
+                name = None
+                if entity.name is not None:
+                    name = entity.name
+                elif entity.original_name is not None:
+                    name = entity.original_name
+
                 sensor = LightSwitch(
                     unique_id=entity.unique_id,
                     family=family,
                     ave_device_id=ave_device_id,
                     is_on=None,
+                    name=name,
                 )
-                # Set the name of the sensor
-                if entity.has_entity_name:
-                    sensor.set_name(entity.name)
-                elif entity.original_name is not None:
-                    sensor.set_name(entity.original_name)
+                sensor.hass = server.hass
+                sensor.entity_id = entity.entity_id
 
                 server.switches[entity.unique_id] = sensor
                 server.async_add_sw_entities([sensor])
@@ -111,17 +114,22 @@ def update_switch(
                 switch.set_name(name)
     else:
         # Create a new motion detection sensor
+        entity_name = None
+        entity_ave_name = None
+        if name is not None and server.settings.get_entity_names:
+            entity_name = name
+            entity_ave_name = name
+
         switch = LightSwitch(
             unique_id=unique_id,
             is_on=device_status,
             family=family,
             ave_device_id=ave_device_id,
             webserver=server,
+            name=entity_name,
+            ave_name=entity_ave_name,
         )
-        if name is not None and server.settings.get_entity_names:
-            switch.set_ave_name(name)
-            if not check_name_changed(server.hass, unique_id):
-                switch.set_name(name)
+
         _LOGGER.info("Creating new switch entity %s", name)
         server.switches[unique_id] = switch
         server.async_add_sw_entities([switch])  # Add the new sensor to Home Assistant
@@ -138,7 +146,7 @@ def check_name_changed(hass: HomeAssistant, unique_id: str) -> bool:
         entity_entry = entity_registry.async_get(entry_id)
         if entity_entry is not None:
             return (
-                entity_entry.has_entity_name
+                entity_entry.name is not None
                 and entity_entry.original_name != entity_entry.name
             )
     return False
@@ -155,6 +163,7 @@ class LightSwitch(SwitchEntity):
         is_on: int | None,
         name=None,
         webserver: AveWebServer | None = None,
+        ave_name: str | None = None,
     ) -> None:
         """Initialize the motion detection sensor."""
         self._unique_id = unique_id
@@ -162,10 +171,12 @@ class LightSwitch(SwitchEntity):
         self.ave_device_id = ave_device_id
         self.family = family
         self._webserver = webserver
-        self._ave_name: str | None = None
+        self._ave_name = ave_name
+        self.hass = self._webserver.hass
 
         if is_on is not None and is_on >= 0:
             self._attr_is_on = bool(is_on)  # Initialize the state
+
         if name is None:
             self._name = self.build_name()
         else:
@@ -217,19 +228,20 @@ class LightSwitch(SwitchEntity):
         if is_on < 0:
             return
         self._attr_is_on = bool(is_on)  # Set the state to True (on) or False (off)
-        self.async_write_ha_state()  # Notify Home Assistant of the state change
+        self.async_write_ha_state()
 
     def set_name(self, name: str | None):
         """Set the name of the sensor."""
         if name is None:
             return
         self._name = name
+        self.async_write_ha_state()
 
     def set_ave_name(self, name: str | None):
         """Set the AVE name of the sensor."""
         if name is not None:
             self._ave_name = name
-            self.async_write_ha_state()  # Notify Home Assistant of the state change
+            self.async_write_ha_state()
 
     def build_name(self) -> str:
         """Build the name of the sensor based on its family and device ID."""

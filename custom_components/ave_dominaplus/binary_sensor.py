@@ -67,17 +67,20 @@ async def adopt_existing_sensors(server: AveWebServer, entry: ConfigEntry) -> No
                 if family == 1007 and not server.settings.fetch_sensors:
                     continue
                 ave_device_id = int(entity.unique_id.split("_")[3])
+                name = None
+                if entity.name is not None:
+                    name = entity.name
+                elif entity.original_name is not None:
+                    name = entity.original_name
+
                 sensor = MotionBinarySensor(
                     unique_id=entity.unique_id,
                     family=family,
                     ave_device_id=ave_device_id,
                     is_motion_detected=None,
+                    name=name,
+                    hass=server.hass,
                 )
-                # Set the name of the sensor
-                if entity.has_entity_name:
-                    sensor.set_name(entity.name)
-                elif entity.original_name is not None:
-                    sensor.set_name(entity.original_name)
 
                 server.binary_sensors[entity.unique_id] = sensor
                 server.async_add_bs_entities([sensor])
@@ -128,21 +131,25 @@ def update_binary_sensor(
             if not check_name_changed(server.hass, unique_id):
                 sensor.set_name(name)
     else:
+        entity_name = None
+        entity_ave_name = None
+        if family == 1007:
+            entity_name = None
+            entity_ave_name = None
+        elif name is not None and server.settings.get_entity_names:
+            entity_name = name
+            entity_ave_name = name
         # Create a new motion detection sensor
         sensor = MotionBinarySensor(
             unique_id=unique_id,
             is_motion_detected=device_status > 0,
             family=family,
             ave_device_id=ave_device_id,
+            hass=server.hass,
+            name=entity_name,
+            ave_name=entity_ave_name,
         )
-        if family == 1007:
-            name = sensor.build_name()
-            if not check_name_changed(server.hass, unique_id):
-                sensor.set_name(name)
-        elif name is not None and server.settings.get_entity_names:
-            if not check_name_changed(server.hass, unique_id):
-                sensor.set_ave_name(name)
-                sensor.set_name(name)
+
         _LOGGER.info("Creating new binary sensor entity %s", sensor.name)
         server.binary_sensors[unique_id] = sensor
         server.async_add_bs_entities([sensor])  # Add the new sensor to Home Assistant
@@ -159,7 +166,7 @@ def check_name_changed(hass: HomeAssistant, unique_id: str) -> bool:
         entity_entry = entity_registry.async_get(entry_id)
         if entity_entry is not None:
             return (
-                entity_entry.has_entity_name
+                entity_entry.name is not None
                 and entity_entry.original_name != entity_entry.name
             )
     return False
@@ -194,7 +201,9 @@ class MotionBinarySensor(BinarySensorEntity):
         family: int,
         ave_device_id: int,
         is_motion_detected: int | None,
+        hass: HomeAssistant | None = None,
         name=None,
+        ave_name=None,
     ) -> None:
         """Initialize the motion detection sensor."""
         self._unique_id = unique_id
@@ -203,7 +212,8 @@ class MotionBinarySensor(BinarySensorEntity):
         self.family = family
         self._last_revealed: str | None = None
         self._last_cleared: str | None = None
-        self._ave_name: str | None = None
+        self._ave_name: str | None = ave_name
+        self.hass = hass
 
         if name is None:
             self._name = self.build_name()
@@ -264,6 +274,7 @@ class MotionBinarySensor(BinarySensorEntity):
         if name is None:
             return
         self._name = name
+        self.async_write_ha_state()
 
     def set_ave_name(self, name: str | None):
         """Set the original name of the sensor."""
