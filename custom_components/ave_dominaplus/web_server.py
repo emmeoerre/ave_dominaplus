@@ -18,6 +18,9 @@ from .const import (
     AVE_FAMILY_KEYPAD,
     AVE_FAMILY_MOTION_SENSOR,
     AVE_FAMILY_SCENARIO,
+    AVE_FAMILY_SHUTTER_3,
+    AVE_FAMILY_SHUTTER_16,
+    AVE_FAMILY_SHUTTER_19,
     AVE_FAMILY_SWITCH,
     AVE_FAMILY_THERMOSTAT,
 )
@@ -40,6 +43,7 @@ class AveWebServerSettings:
     fetch_lights: bool
     fetch_scenarios: bool
     fetch_thermostats: bool
+    fetch_shutters: bool
 
     def __init__(self) -> None:
         """Initialize the settings."""
@@ -50,6 +54,7 @@ class AveWebServerSettings:
         self.fetch_lights = False
         self.fetch_scenarios = False
         self.fetch_thermostats = False
+        self.fetch_shutters = False
 
 
 class AveWebServer:
@@ -70,6 +75,7 @@ class AveWebServer:
             self.settings.fetch_sensors = settings_data["fetch_sensors"]
             self.settings.fetch_lights = settings_data["fetch_lights"]
             self.settings.fetch_thermostats = settings_data["fetch_thermostats"]
+            self.settings.fetch_shutters = settings_data.get("fetch_shutters", False)
         except KeyError:
             _LOGGER.exception("Missing key in settings data")
         self.mac_address = ""
@@ -101,6 +107,9 @@ class AveWebServer:
         self.numbers: dict = {}  # Track number entities by unique ID
         self.async_add_number_entities: Any = None
         self.update_th_offset: Any = None
+        self.covers: dict = {}  # Track cover entities by unique ID
+        self.async_add_cover_entities: Any = None
+        self.update_cover: Any = None
 
     async def set_update_binary_sensor(self, func) -> None:
         """Set the set_update_binary_sensor method for binary sensors."""
@@ -138,6 +147,15 @@ class AveWebServer:
         """Set the method to add/update thermostat offset number entities."""
         if self.update_th_offset is None:
             self.update_th_offset = func
+
+    async def set_update_cover(self, func) -> None:
+        """Set the update_cover method for cover entities."""
+        self.update_cover = func
+
+    async def set_async_add_cover_entities(self, func) -> None:
+        """Set the async_add_entities method for cover entities."""
+        if self.async_add_cover_entities is None:
+            self.async_add_cover_entities = func
 
     async def is_connected(self) -> bool:
         """Return if the web server is connected."""
@@ -227,6 +245,10 @@ class AveWebServer:
         if self.settings.fetch_lights:
             # Get status by family type 1 (lights)
             await self.send_ws_command("GSF", [str(AVE_FAMILY_SWITCH)])
+
+        if self.settings.fetch_shutters:
+            # Get status by family type 3, 16, 19 (shutters)
+            await self.send_ws_command("GSF", [str(AVE_FAMILY_SHUTTER_3)])
 
         # Get status by family type 12 (motion detection areas)
         if self.settings.fetch_sensor_areas:
@@ -435,6 +457,9 @@ class AveWebServer:
                 pass
             elif device_type == AVE_FAMILY_SWITCH and self.settings.fetch_lights:
                 self.update_switch(self, device_type, device_id, device_status, None)
+            elif device_type in (AVE_FAMILY_SHUTTER_3, AVE_FAMILY_SHUTTER_16, AVE_FAMILY_SHUTTER_19):
+                if self.settings.fetch_shutters:
+                    self.update_cover(self, device_type, device_id, device_status, None)
             # elif device_type in [12, 13]:
             #     _LOGGER.debug(
             #         "Received async Antitheft status update. "
@@ -608,7 +633,17 @@ class AveWebServer:
                 self.update_switch(
                     self, AVE_FAMILY_SWITCH, device_id, device_status, None
                 )
-                # send_mqtt_message(device_id, device_status)
+
+        if parameters[0] in (
+            str(AVE_FAMILY_SHUTTER_3),
+            str(AVE_FAMILY_SHUTTER_16),
+            str(AVE_FAMILY_SHUTTER_19),
+        ):
+            for record in records:
+                device_id, device_status = int(record[0]), int(record[1])
+                self.update_cover(
+                    self, int(parameters[0]), device_id, device_status, None
+                )
 
     def manage_ldi(self, parameters: list[Any], records: list[list[Any]]) -> None:
         """Manage LDI List Devices commands received from the web server."""
@@ -648,6 +683,8 @@ class AveWebServer:
             elif device_type == AVE_FAMILY_SWITCH:
                 self.update_switch(self, AVE_FAMILY_SWITCH, device_id, -1, device_name)
                 # Light
+            elif device_type in (AVE_FAMILY_SHUTTER_3, AVE_FAMILY_SHUTTER_16, AVE_FAMILY_SHUTTER_19):
+                self.update_cover(self, device_type, device_id, -1, device_name)
             elif device_type == AVE_FAMILY_THERMOSTAT:
                 # All thermostats
                 self.all_thermostats_raw[device_id] = device_name
@@ -740,6 +777,39 @@ class AveWebServer:
         """Toggle the switch."""
         if self.ws_conn and not self.ws_conn.closed:
             await self.send_ws_command("EBI", [str(device_id), "10"])
+        else:
+            _LOGGER.error("WebSocket is not connected")
+
+    async def shutter_open(self, device_id: int) -> None:
+        """Send open (up/raise) command to a shutter.
+
+        Value 8: raises the shutter. Also acts as stop if shutter is moving down.
+        Verified from WebSocket traffic on AVE Dominaplus.
+        """
+        if self.ws_conn and not self.ws_conn.closed:
+            await self.send_ws_command("EAI", [str(device_id), "8"])
+        else:
+            _LOGGER.error("WebSocket is not connected")
+
+    async def shutter_close(self, device_id: int) -> None:
+        """Send close (down/lower) command to a shutter.
+
+        Value 9: lowers the shutter. Also acts as stop if shutter is moving up.
+        Verified from WebSocket traffic on AVE Dominaplus.
+        """
+        if self.ws_conn and not self.ws_conn.closed:
+            await self.send_ws_command("EAI", [str(device_id), "9"])
+        else:
+            _LOGGER.error("WebSocket is not connected")
+
+    async def shutter_stop(self, device_id: int) -> None:
+        """Send stop command to a shutter.
+
+        AVE does not have a dedicated stop command. We send 9 (lower/stop)
+        which stops the shutter regardless of direction when moving.
+        """
+        if self.ws_conn and not self.ws_conn.closed:
+            await self.send_ws_command("EAI", [str(device_id), "9"])
         else:
             _LOGGER.error("WebSocket is not connected")
 

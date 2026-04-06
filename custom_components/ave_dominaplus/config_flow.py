@@ -50,6 +50,10 @@ def _build_step_user_data_schema(defaults: dict[str, Any] | None = None) -> vol.
                 "fetch_thermostats",
                 default=defaults.get("fetch_thermostats", True),
             ): bool,
+            vol.Required(
+                "fetch_shutters",
+                default=defaults.get("fetch_shutters", True),
+            ): bool,
         }
     )
 
@@ -116,6 +120,7 @@ class AveWsConfigFlow(ConfigFlow, domain=DOMAIN):
             "fetch_sensors": True,
             "fetch_lights": True,
             "fetch_thermostats": True,
+            "fetch_shutters": True,
         }
         self._async_abort_entries_match({CONF_IP_ADDRESS: user_input[CONF_IP_ADDRESS]})
 

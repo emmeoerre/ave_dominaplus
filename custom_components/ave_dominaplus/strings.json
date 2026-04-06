@@ -13,7 +13,8 @@
           "fetch_sensor_areas": "Get antitheft sensor areas",
           "fetch_sensors": "Get individual antitheft sensors",
           "fetch_lights": "Get lights",
-          "fetch_thermostats": "Get thermostats"
+          "fetch_thermostats": "Get thermostats",
+          "fetch_shutters": "Get shutters"
         },
         "data_description": {
           "ip_address": "The webserver must be reachable from the Home Assistant instance.",
@@ -33,7 +34,8 @@
           "fetch_sensor_areas": "Get antitheft sensor areas",
           "fetch_sensors": "Get individual antitheft sensors",
           "fetch_lights": "Get lights",
-          "fetch_thermostats": "Get thermostats"
+          "fetch_thermostats": "Get thermostats",
+          "fetch_shutters": "Get shutters"
         },
         "data_description": {
           "ip_address": "The webserver must be reachable from the Home Assistant instance.",
@@ -54,7 +56,8 @@
           "fetch_sensor_areas": "Get antitheft sensor areas",
           "fetch_sensors": "Get individual antitheft sensors",
           "fetch_lights": "Get lights",
-          "fetch_thermostats": "Get thermostats"
+          "fetch_thermostats": "Get thermostats",
+          "fetch_shutters": "Get shutters"
         },
         "data_description": {
           "ip_address": "The webserver must be reachable from the Home Assistant instance.",

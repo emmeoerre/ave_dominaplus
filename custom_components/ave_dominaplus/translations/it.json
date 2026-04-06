@@ -10,7 +10,8 @@
           "fetch_sensor_areas": "Importa le aree antifurto",
           "fetch_sensors": "Importa i sensori antifurto individuali",
           "fetch_lights": "Importa le luci",
-          "fetch_thermostats": "Importa i termostati"
+          "fetch_thermostats": "Importa i termostati",
+          "fetch_shutters": "Importa le tapparelle"
         },
         "data_description": {
           "ip_address": "Il webserver deve essere raggiungibile dall'istanza Home Assistant.",
@@ -27,7 +28,8 @@
           "fetch_sensor_areas": "Importa le aree antifurto",
           "fetch_sensors": "Importa i sensori antifurto individuali",
           "fetch_lights": "Importa le luci",
-          "fetch_thermostats": "Importa i termostati"
+          "fetch_thermostats": "Importa i termostati",
+          "fetch_shutters": "Importa le tapparelle"
         },
         "data_description": {
           "ip_address": "Il webserver deve essere raggiungibile dall'istanza Home Assistant.",
@@ -48,7 +50,8 @@
           "fetch_sensor_areas": "Importa le aree antifurto",
           "fetch_sensors": "Importa i sensori antifurto individuali",
           "fetch_lights": "Importa le luci",
-          "fetch_thermostats": "Importa i termostati"
+          "fetch_thermostats": "Importa i termostati",
+          "fetch_shutters": "Importa le tapparelle"
         },
         "data_description": {
           "ip_address": "Il webserver deve essere raggiungibile dall'istanza Home Assistant.",
