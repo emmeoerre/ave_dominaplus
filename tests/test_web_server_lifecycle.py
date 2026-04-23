@@ -7,7 +7,8 @@ from unittest.mock import AsyncMock, Mock, patch
 import aiohttp
 
 from homeassistant.core import HomeAssistant
-from tests.web_server_harness import (
+
+from .web_server_harness import (
     FakeClientSession,
     FakeWSConnection,
     FakeWSMessage,

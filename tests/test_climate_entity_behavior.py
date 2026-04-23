@@ -37,8 +37,7 @@ def _new_server(hass: HomeAssistant) -> AveWebServer:
         "fetch_thermostats": True,
         "on_off_lights_as_switch": True,
     }
-    server = AveWebServer(settings, hass)
-    return server
+    return AveWebServer(settings, hass)
 
 
 def _props(

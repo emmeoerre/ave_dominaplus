@@ -278,7 +278,7 @@ def manage_ldi_li2(
             if command == "li2":
                 try:
                     address_dec = int(str(address).strip())
-                except Exception:
+                except Exception:  # noqa: BLE001
                     _LOGGER.debug(
                         "Failed parsing address '%s'; leaving address_dec unset",
                         address,

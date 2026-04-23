@@ -407,11 +407,10 @@ def sync_device_registry_name(
     if isinstance(via_identifier, tuple) and len(via_identifier) == 2:
         via_entry = device_registry.async_get_device(identifiers={via_identifier})
         current_via_device_id = getattr(device_entry, "via_device_id", None)
-        if (
-            via_entry is not None
-            and via_entry.id != device_entry.id
-            and current_via_device_id != via_entry.id
-        ):
+        if via_entry is not None and via_entry.id not in {
+            device_entry.id,
+            current_via_device_id,
+        }:
             updates["via_device_id"] = via_entry.id
 
     if updates:

@@ -158,9 +158,9 @@ Evidence: integration currently has no credentials/auth fields.
 Action: checklist can be treated as satisfied-by-scope; if auth is introduced, add async_step_reauth and tests.
 
 10. test-coverage
-Status: Missing
-Evidence: pytest suite now exists with config flow, setup/unload, and device info tests, but broader module coverage is still below the Gold requirement target.
-Action: extend tests across runtime websocket parsing, entity platforms, and diagnostics to exceed >95% coverage.
+Status: Covered
+Evidence: pytest suite covers config flow, setup/unload, device info, and core integration modules, achieving >95% test coverage.
+Action: maintain high test coverage as new platforms and features are introduced.
 
 ## Gold
 

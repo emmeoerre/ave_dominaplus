@@ -24,7 +24,8 @@ from custom_components.ave_dominaplus.const import (
 )
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 from homeassistant.exceptions import ConfigEntryNotReady
-from tests.web_server_harness import make_server
+
+from .web_server_harness import make_server
 
 
 def _entry(runtime_data, entry_id: str = "entry-1"):

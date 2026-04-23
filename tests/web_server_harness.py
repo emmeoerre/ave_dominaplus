@@ -44,6 +44,7 @@ class FakeWSConnection:
         closed: bool = False,
         send_exc: Exception | None = None,
     ) -> None:
+        """Initialize the fake websocket connection."""
         self._messages: list[Any] = list(messages or [])
         self.closed = closed
         self.send_exc = send_exc
@@ -84,6 +85,7 @@ class FakeClientSession:
         ws_exc: Exception | None = None,
         closed: bool = False,
     ) -> None:
+        """Initialize the fake client session."""
         self._ws_conn = ws_conn
         self._ws_exc = ws_exc
         self.closed = closed

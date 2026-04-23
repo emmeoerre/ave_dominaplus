@@ -408,7 +408,7 @@ class AveWebServer:
 
         try:
             await self.ws_conn.send_str(full_message)
-        except Exception:
+        except Exception:  # noqa: BLE001
             self._set_connected(False)
             _LOGGER.debug(
                 "Failed to send command %s because WebSocket is not connected",

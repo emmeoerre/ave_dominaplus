@@ -20,7 +20,8 @@ from custom_components.ave_dominaplus.light import (
     update_light,
 )
 from homeassistant.exceptions import ConfigEntryNotReady
-from tests.web_server_harness import make_server
+
+from .web_server_harness import make_server
 
 
 def _entry(runtime_data, entry_id: str = "entry-1"):

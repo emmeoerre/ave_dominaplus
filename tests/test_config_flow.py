@@ -729,9 +729,9 @@ async def test_validate_input_requires_mac_for_discovery(hass: HomeAssistant) ->
             return_value=mock_webserver,
         ),
         patch.object(flow, "_configure_unique_id", new=AsyncMock(return_value="")),
+        pytest.raises(MacAddressNotFound),
     ):
-        with pytest.raises(MacAddressNotFound):
-            await flow.validate_input(MOCK_USER_INPUT, require_mac_address=True)
+        await flow.validate_input(MOCK_USER_INPUT, require_mac_address=True)
 
 
 async def test_validate_input_returns_with_empty_mac_when_not_required(

@@ -17,7 +17,8 @@ from custom_components.ave_dominaplus.sensor import (
 )
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.exceptions import ConfigEntryNotReady
-from tests.web_server_harness import make_server
+
+from .web_server_harness import make_server
 
 
 def _entry(runtime_data, entry_id: str = "entry-1"):
@@ -52,7 +53,9 @@ async def test_adopt_existing_numbers_handles_registry_none(hass) -> None:
     """Adoption should return cleanly when entity registry is unavailable."""
     server = make_server(hass)
 
-    with patch("custom_components.ave_dominaplus.sensor.er.async_get", return_value=None):
+    with patch(
+        "custom_components.ave_dominaplus.sensor.er.async_get", return_value=None
+    ):
         await adopt_existing_sensors(server, _entry(server))
 
 
@@ -82,7 +85,9 @@ async def test_adopt_existing_numbers_filters_and_uses_original_name(hass) -> No
     ]
 
     with (
-        patch("custom_components.ave_dominaplus.sensor.er.async_get", return_value=Mock()),
+        patch(
+            "custom_components.ave_dominaplus.sensor.er.async_get", return_value=Mock()
+        ),
         patch(
             "custom_components.ave_dominaplus.sensor.er.async_entries_for_config_entry",
             return_value=entities,
@@ -109,7 +114,9 @@ async def test_adopt_existing_numbers_handles_exceptions(hass) -> None:
     )
 
     with (
-        patch("custom_components.ave_dominaplus.sensor.er.async_get", return_value=Mock()),
+        patch(
+            "custom_components.ave_dominaplus.sensor.er.async_get", return_value=Mock()
+        ),
         patch(
             "custom_components.ave_dominaplus.sensor.er.async_entries_for_config_entry",
             return_value=[bad_entity],
@@ -134,11 +141,15 @@ def test_sensor_name_changed_helper_true_and_false(hass) -> None:
     registry.async_get_entity_id.return_value = "number.test"
     registry.async_get.return_value = SimpleNamespace(name="New", original_name="Old")
 
-    with patch("custom_components.ave_dominaplus.sensor.er.async_get", return_value=registry):
+    with patch(
+        "custom_components.ave_dominaplus.sensor.er.async_get", return_value=registry
+    ):
         assert check_name_changed(hass, "uid") is True
 
     registry.async_get_entity_id.return_value = None
-    with patch("custom_components.ave_dominaplus.sensor.er.async_get", return_value=registry):
+    with patch(
+        "custom_components.ave_dominaplus.sensor.er.async_get", return_value=registry
+    ):
         assert check_name_changed(hass, "uid") is False
 
 

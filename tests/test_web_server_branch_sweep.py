@@ -24,7 +24,8 @@ from custom_components.ave_dominaplus.ws_connection_flow import (
     thermostats_fetch_flow,
 )
 from homeassistant.core import HomeAssistant
-from tests.web_server_harness import FakeWSConnection, make_server
+
+from .web_server_harness import FakeWSConnection, make_server
 
 
 class _FakeResponse:

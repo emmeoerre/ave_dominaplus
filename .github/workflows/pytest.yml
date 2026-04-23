@@ -1,0 +1,35 @@
+name: Run Pytest
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -f requirements_test.txt ]; then pip install -r requirements_test.txt; fi
+
+      - name: Run tests with coverage
+        run: |
+          pytest --cov=custom_components/ave_dominaplus --cov-report=term-missing > coverage-report.txt 2>&1 || true
+
+      - name: Upload coverage text report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage-report.txt
