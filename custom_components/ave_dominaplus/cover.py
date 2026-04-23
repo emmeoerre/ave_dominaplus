@@ -12,7 +12,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import entity_registry as er
-from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import ws_commands
 from .const import (
@@ -41,7 +41,7 @@ COVER_FAMILIES = (
 async def async_setup_entry(
     _hass: HomeAssistant | None,
     entry: ConfigEntry,
-    async_add_entities: AddConfigEntryEntitiesCallback,
+    async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up AVE dominaplus covers."""
     webserver: AveWebServer = entry.runtime_data
@@ -278,9 +278,16 @@ class AveCover(CoverEntity):
         self._attr_device_class = CoverDeviceClass.SHUTTER
 
         if name is None:
-            self._name = self.build_name()
+            if self.family == AVE_FAMILY_SHUTTER_ROLLING:
+                self._attr_translation_key = "shutter"
+            elif self.family == AVE_FAMILY_SHUTTER_SLIDING:
+                self._attr_translation_key = "blind"
+            elif self.family == AVE_FAMILY_SHUTTER_HUNG:
+                self._attr_translation_key = "window"
+            else:
+                self._attr_translation_key = "cover"
         else:
-            self._name = name
+            self._attr_name = name
 
         self._position = 3
         if position is not None:
@@ -351,11 +358,6 @@ class AveCover(CoverEntity):
         return self._unique_id
 
     @property
-    def name(self) -> str:
-        """Return the name of the entity."""
-        return self._name
-
-    @property
     def available(self) -> bool:
         """Return if the backing webserver connection is available."""
         return self._webserver.connected
@@ -417,7 +419,7 @@ class AveCover(CoverEntity):
         """Set the entity name."""
         if name is None:
             return
-        self._name = name
+        self._attr_name = name
         self._sync_device_info(name)
         self._write_state_or_defer()
 

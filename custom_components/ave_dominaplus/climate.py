@@ -19,7 +19,7 @@ from homeassistant.const import PRECISION_TENTHS, UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr, entity_registry as er
-from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import ws_commands
 from .ave_map import AveMapCommand
@@ -42,7 +42,7 @@ PRESET_MANUAL = "Manual"
 async def async_setup_entry(
     _hass: HomeAssistant | None,
     entry: ConfigEntry,
-    async_add_entities: AddConfigEntryEntitiesCallback,
+    async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up AVE dominaplus thermostats.
 
@@ -394,11 +394,11 @@ class AveThermostat(ClimateEntity):
         self.ave_properties: AveThermostatProperties = ave_properties
         self.ave_name = ""
         if name is not None:
-            self._name = name
+            self._attr_name = name
         elif ave_properties.device_name is None:
-            self._name = self.build_name()
+            self._attr_name = self.build_name()
         else:
-            self._name = ave_properties.device_name
+            self._attr_name = ave_properties.device_name
             self.ave_name = ave_properties.device_name
 
         self._address_dec = address_dec
@@ -633,11 +633,6 @@ class AveThermostat(ClimateEntity):
         return self._unique_id
 
     @property
-    def name(self) -> str:
-        """Return the name of the sensor."""
-        return self._name
-
-    @property
     def available(self) -> bool:
         """Return if the backing webserver connection is available."""
         return self._webserver.connected
@@ -673,7 +668,7 @@ class AveThermostat(ClimateEntity):
         """Set the name of the sensor."""
         if name is None:
             return
-        self._name = name
+        self._attr_name = name
         self._sync_device_name(name)
         self.async_write_ha_state()
 

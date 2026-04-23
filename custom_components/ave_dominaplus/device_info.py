@@ -84,12 +84,12 @@ def is_structural_parent_identifier(identifier: tuple[str, str]) -> bool:
 
 def _hub_identifier(server: AveWebServer) -> str:
     """Build a stable hub identifier for the device registry."""
+    if server.config_entry_id:
+        return server.config_entry_id
     if server.mac_address:
         return server.mac_address.lower()
     if server.config_entry_unique_id:
         return server.config_entry_unique_id.lower()
-    if server.config_entry_id:
-        return server.config_entry_id
     return server.settings.host
 
 
@@ -236,7 +236,8 @@ def build_hub_device_info(server: AveWebServer) -> DeviceInfo:
         connections=connections,
         manufacturer="AVE",
         model="AVE dominaplus webserver",
-        name="Dominaplus Hub",
+        translation_key="hub",
+        name=None,
         configuration_url=f"http://{server.settings.host}",
     )
 
@@ -272,11 +273,19 @@ def build_endpoint_device_info(
     elif family == AVE_FAMILY_SCENARIO:
         via_device = _scenarios_parent_device_identifier(server)
 
+    device_name: str | None = _endpoint_name(family, ave_device_id, ave_name)
+    translation_key: str | None = None
+
+    if group_key in (_GROUP_ANTITHEFT_SENSORS, _GROUP_ANTITHEFT_AREAS):
+        translation_key = group_key
+        device_name = None
+
     return DeviceInfo(
         identifiers={endpoint_identifier},
         manufacturer="AVE",
         model=_endpoint_model(family),
-        name=_endpoint_name(family, ave_device_id, ave_name),
+        name=device_name,
+        translation_key=translation_key,
         via_device=via_device,
         configuration_url=f"http://{server.settings.host}",
     )
@@ -294,7 +303,8 @@ def ensure_lighting_parent_device(server: AveWebServer, config_entry_id: str) ->
             identifiers={_lighting_parent_device_identifier(server)},
             manufacturer="AVE",
             model=_GROUP_MODELS[_GROUP_LIGHTING],
-            name=_GROUP_NAMES[_GROUP_LIGHTING],
+            translation_key=_GROUP_LIGHTING,
+            name=None,
             via_device=_hub_device_identifier(server),
             configuration_url=f"http://{server.settings.host}",
         )
@@ -315,7 +325,8 @@ def ensure_scenarios_parent_device(server: AveWebServer, config_entry_id: str) -
             identifiers={_scenarios_parent_device_identifier(server)},
             manufacturer="AVE",
             model=_GROUP_MODELS[_GROUP_SCENARIOS],
-            name=_GROUP_NAMES[_GROUP_SCENARIOS],
+            translation_key=_GROUP_SCENARIOS,
+            name=None,
             via_device=_hub_device_identifier(server),
             configuration_url=f"http://{server.settings.host}",
         )
@@ -336,7 +347,8 @@ def ensure_covers_parent_device(server: AveWebServer, config_entry_id: str) -> N
             identifiers={_covers_parent_device_identifier(server)},
             manufacturer="AVE",
             model=_GROUP_MODELS[_GROUP_COVERS],
-            name=_GROUP_NAMES[_GROUP_COVERS],
+            translation_key=_GROUP_COVERS,
+            name=None,
             via_device=_hub_device_identifier(server),
             configuration_url=f"http://{server.settings.host}",
         )
@@ -359,7 +371,8 @@ def ensure_thermostats_parent_device(
             identifiers={_thermostats_parent_device_identifier(server)},
             manufacturer="AVE",
             model=_GROUP_MODELS[_GROUP_THERMOSTATS],
-            name=_GROUP_NAMES[_GROUP_THERMOSTATS],
+            translation_key=_GROUP_THERMOSTATS,
+            name=None,
             via_device=_hub_device_identifier(server),
             configuration_url=f"http://{server.settings.host}",
         )
@@ -407,10 +420,11 @@ def sync_device_registry_name(
     if isinstance(via_identifier, tuple) and len(via_identifier) == 2:
         via_entry = device_registry.async_get_device(identifiers={via_identifier})
         current_via_device_id = getattr(device_entry, "via_device_id", None)
-        if via_entry is not None and via_entry.id not in {
-            device_entry.id,
-            current_via_device_id,
-        }:
+        if (
+            via_entry is not None  # noqa: PLR1714
+            and via_entry.id != device_entry.id
+            and current_via_device_id != via_entry.id
+        ):
             updates["via_device_id"] = via_entry.id
 
     if updates:

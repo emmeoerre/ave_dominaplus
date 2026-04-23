@@ -258,7 +258,8 @@ def test_scenario_button_properties_and_state_write_paths(hass) -> None:
     button.async_write_ha_state = Mock()
 
     assert button.unique_id == "uid"
-    assert button.name == "Scenario 7 Run"
+    assert button.translation_key == "scenario_run"
+    assert button.translation_placeholders == {"id": "7"}
     assert button.available is True
     assert button.extra_state_attributes == {
         "AVE_family": AVE_FAMILY_SCENARIO,

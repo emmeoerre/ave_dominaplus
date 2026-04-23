@@ -90,5 +90,89 @@
       "not_ave_webserver": "Il dispositivo scoperto non è un webserver AVE",
       "unknown": "Errore sconosciuto"
     }
+  },
+  "device": {
+    "hub": {
+      "name": "Dominaplus Hub"
+    },
+    "lighting": {
+      "name": "Dominaplus Luci"
+    },
+    "covers": {
+      "name": "Dominaplus Serramenti"
+    },
+    "thermostats": {
+      "name": "Dominaplus Termoregolazione"
+    },
+    "antitheft_sensors": {
+      "name": "Dominaplus Sensori Antintrusione"
+    },
+    "antitheft_areas": {
+      "name": "Dominaplus Aree Antintrusione"
+    },
+    "scenarios": {
+      "name": "Dominaplus Scenari"
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "antitheft_sensor": {
+        "name": "Sensore Antintrusione"
+      },
+      "antitheft_area": {
+        "name": "Area Antintrusione"
+      },
+      "scenario_running": {
+        "name": "In Esecuzione"
+      }
+    },
+    "button": {
+      "scenario_run": {
+        "name": "Esegui"
+      }
+    },
+    "light": {
+      "light": {
+        "name": "Luce {id}"
+      },
+      "dimmer": {
+        "name": "Dimmer {id}"
+      }
+    },
+    "cover": {
+      "shutter": {
+        "name": "Tapparella {id}"
+      },
+      "blind": {
+        "name": "Veneziana {id}"
+      },
+      "window": {
+        "name": "Finestra {id}"
+      },
+      "cover": {
+        "name": "Copertura {id}"
+      }
+    },
+    "climate": {
+      "thermostat": {
+        "name": "Termostato {id}"
+      }
+    },
+    "switch": {
+      "light_switch": {
+        "name": "Luce {id}"
+      },
+      "scenario_switch": {
+        "name": "Scenario {id}"
+      },
+      "generic_switch": {
+        "name": "Interruttore {family} {id}"
+      }
+    },
+    "sensor": {
+      "thermostat_offset": {
+        "name": "Offset Termostato {id}"
+      }
+    }
   }
 }

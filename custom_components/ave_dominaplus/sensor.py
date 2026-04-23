@@ -1,4 +1,4 @@
-"""Binary sensor platform for AVE dominaplus integration."""
+"""Sensor platform for AVE dominaplus integration."""
 
 import logging
 from typing import Any
@@ -157,7 +157,7 @@ def check_name_changed(hass: HomeAssistant, unique_id: str) -> bool:
     entity_registry = er.async_get(hass)
 
     entry_id = entity_registry.async_get_entity_id(
-        "number", "ave_dominaplus", unique_id
+        "sensor", "ave_dominaplus", unique_id
     )
     if entry_id:
         entity_entry = entity_registry.async_get(entry_id)
@@ -209,11 +209,13 @@ class ThermostatOffset(SensorEntity):
 
         if name is None:
             if webserver.settings.get_entity_names:
-                self._name = f"Thermostat offset {self._ave_name or self.ave_device_id}"
+                self._attr_name = (
+                    f"Thermostat offset {self._ave_name or self.ave_device_id}"
+                )
             else:
-                self._name = self.build_name()
+                self._attr_name = self.build_name()
         else:
-            self._name = name
+            self._attr_name = name
 
         if value is not None:
             self.update_value(value, first_update=True)
@@ -235,11 +237,6 @@ class ThermostatOffset(SensorEntity):
     def unique_id(self) -> str:
         """Return the unique ID of the sensor."""
         return self._unique_id
-
-    @property
-    def name(self) -> str:
-        """Return the name of the sensor."""
-        return self._name
 
     @property
     def available(self) -> bool:
@@ -279,7 +276,7 @@ class ThermostatOffset(SensorEntity):
         """Set the name of the sensor."""
         if name is None:
             return
-        self._name = name
+        self._attr_name = name
         self._write_state_or_defer()
 
     def set_ave_name(self, name: str | None) -> None:

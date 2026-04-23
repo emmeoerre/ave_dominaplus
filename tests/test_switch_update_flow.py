@@ -173,7 +173,8 @@ def test_switch_build_name_covers_scenario_family(hass: HomeAssistant) -> None:
     server = _new_server(hass)
     switch = LightSwitch("uid", AVE_FAMILY_SCENARIO, 33, 0, server)
 
-    assert switch.name == "Scenario 33"
+    assert switch.translation_key == "scenario_switch"
+    assert switch.translation_placeholders == {"id": "33"}
 
 
 def test_switch_set_ave_name_updates_device_info_name(hass: HomeAssistant) -> None:

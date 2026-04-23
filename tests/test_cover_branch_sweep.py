@@ -383,7 +383,8 @@ async def test_cover_entity_methods_and_properties_cover_remaining_paths(hass) -
     cover = AveCover("uid", AVE_FAMILY_SHUTTER_ROLLING, 5, 1, server)
     cover.async_write_ha_state = Mock()
 
-    assert cover.name == "Shutter 5"
+    assert cover.translation_key == "shutter"
+    assert cover.translation_placeholders == {"id": "5"}
     assert cover.available is True
     assert cover.is_closed is False
     assert cover.is_opening is False
@@ -424,7 +425,8 @@ def test_cover_mutators_and_write_defer_paths(hass) -> None:
     cover = AveCover("uid", AVE_FAMILY_SHUTTER_SLIDING, 6, None, server)
     cover.async_write_ha_state = Mock()
 
-    assert cover.name == "Blind 6"
+    assert cover.translation_key == "blind"
+    assert cover.translation_placeholders == {"id": "6"}
     assert cover.extra_state_attributes["AVE address_hex"] == ""
 
     cover.update_state(None)
@@ -455,7 +457,8 @@ def test_cover_build_name_variants(hass) -> None:
     hung = AveCover("u3", AVE_FAMILY_SHUTTER_HUNG, 3, None, server)
     unknown = AveCover("u4", 999, 4, None, server)
 
-    assert rolling.name == "Shutter 1"
-    assert sliding.name == "Blind 2"
-    assert hung.name == "Window 3"
-    assert unknown.name == "Cover 4"
+    assert rolling.translation_key == "shutter"
+    assert rolling.name is None
+    assert sliding.translation_key == "blind"
+    assert hung.translation_key == "window"
+    assert unknown.translation_key == "cover"

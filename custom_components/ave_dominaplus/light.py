@@ -8,7 +8,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import entity_registry as er
-from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import ws_commands
 from .const import AVE_FAMILY_DIMMER, AVE_FAMILY_ONOFFLIGHTS
@@ -27,7 +27,7 @@ PARALLEL_UPDATES = 1
 async def async_setup_entry(
     _hass: HomeAssistant | None,
     entry: ConfigEntry,
-    async_add_entities: AddConfigEntryEntitiesCallback,
+    async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up AVE dominaplus dimmer lights."""
     webserver: AveWebServer = entry.runtime_data
@@ -259,9 +259,12 @@ class DimmerLight(LightEntity):
             self._attr_color_mode = ColorMode.ONOFF
 
         if name is None:
-            self._name = self.build_name()
+            if self.family == AVE_FAMILY_ONOFFLIGHTS:
+                self._attr_translation_key = "light"
+            else:
+                self._attr_translation_key = "dimmer"
         else:
-            self._name = name
+            self._attr_name = name
 
         self._attr_is_on = False
         if is_on is not None and is_on >= 0:
@@ -350,11 +353,6 @@ class DimmerLight(LightEntity):
         return self._unique_id
 
     @property
-    def name(self) -> str:
-        """Return the name of the entity."""
-        return self._name
-
-    @property
     def available(self) -> bool:
         """Return if the backing webserver connection is available."""
         return self._webserver.connected
@@ -404,7 +402,7 @@ class DimmerLight(LightEntity):
         """Set the entity name."""
         if name is None:
             return
-        self._name = name
+        self._attr_name = name
         self._write_state_or_defer()
 
     def set_ave_name(self, name: str | None) -> None:

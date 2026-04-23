@@ -82,7 +82,7 @@ def test_device_info_falls_back_to_host() -> None:
     assert info.get("identifiers") == {(DOMAIN, "hub_10.0.0.99")}
     assert info.get("manufacturer") == "AVE"
     assert info.get("model") == "AVE dominaplus webserver"
-    assert info.get("name") == "Dominaplus Hub"
+    assert info.get("translation_key") == "hub"
     assert info.get("configuration_url") == "http://10.0.0.99"
 
 
@@ -135,7 +135,8 @@ def test_ensure_lighting_parent_device_registers_under_hub(hass) -> None:
         identifiers={(DOMAIN, "endpoint_aa:bb:cc:dd:ee:ff_lighting")},
         manufacturer="AVE",
         model="AVE dominaplus lighting",
-        name="Dominaplus Lighting",
+        translation_key="lighting",
+        name=None,
         via_device=(DOMAIN, "hub_aa:bb:cc:dd:ee:ff"),
         configuration_url="http://10.0.0.99",
     )
@@ -155,7 +156,8 @@ def test_ensure_scenarios_parent_device_registers_under_hub(hass) -> None:
         identifiers={(DOMAIN, "endpoint_aa:bb:cc:dd:ee:ff_scenarios")},
         manufacturer="AVE",
         model="AVE dominaplus scenarios",
-        name="Dominaplus Scenarios",
+        translation_key="scenarios",
+        name=None,
         via_device=(DOMAIN, "hub_aa:bb:cc:dd:ee:ff"),
         configuration_url="http://10.0.0.99",
     )
@@ -175,7 +177,8 @@ def test_ensure_covers_parent_device_registers_under_hub(hass) -> None:
         identifiers={(DOMAIN, "endpoint_aa:bb:cc:dd:ee:ff_covers")},
         manufacturer="AVE",
         model="AVE dominaplus covers",
-        name="Dominaplus Covers",
+        translation_key="covers",
+        name=None,
         via_device=(DOMAIN, "hub_aa:bb:cc:dd:ee:ff"),
         configuration_url="http://10.0.0.99",
     )
@@ -195,7 +198,8 @@ def test_ensure_thermostats_parent_device_registers_under_hub(hass) -> None:
         identifiers={(DOMAIN, "endpoint_aa:bb:cc:dd:ee:ff_thermostats")},
         manufacturer="AVE",
         model="AVE dominaplus thermostats",
-        name="Dominaplus Thermostats",
+        translation_key="thermostats",
+        name=None,
         via_device=(DOMAIN, "hub_aa:bb:cc:dd:ee:ff"),
         configuration_url="http://10.0.0.99",
     )
@@ -350,7 +354,7 @@ def test_endpoint_motion_sensors_are_grouped() -> None:
     )
 
     assert info.get("identifiers") == {(DOMAIN, "endpoint_entry-123_antitheft_sensors")}
-    assert info.get("name") == "Dominaplus Antitheft Sensors"
+    assert info.get("translation_key") == "antitheft_sensors"
 
 
 def test_endpoint_scenario_name_falls_back_to_device_id() -> None:

@@ -204,7 +204,8 @@ async def test_thermostat_entity_edge_paths_and_lifecycle(hass) -> None:
     thermostat.async_write_ha_state = Mock()
 
     assert thermostat.unique_id == "uid"
-    assert thermostat.name == "Thermostat 9"
+    assert thermostat.translation_key == "thermostat"
+
     assert thermostat.available is False
 
     with (

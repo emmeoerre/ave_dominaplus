@@ -169,7 +169,7 @@ def test_sensor_properties_mutators_and_write_paths(hass) -> None:
     entity.async_write_ha_state = Mock()
 
     assert entity.available is True
-    assert entity.device_class == SensorDeviceClass.TEMPERATURE_DELTA
+    assert entity.device_class == SensorDeviceClass.TEMPERATURE
     assert entity.extra_state_attributes["AVE webserver MAC"] == "aa:bb:cc:dd:ee:ff"
 
     entity.update_value(None)

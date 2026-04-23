@@ -96,5 +96,89 @@
       "not_ave_webserver": "Discovered device is not an AVE webserver",
       "unknown": "[%key:common::config_flow::error::unknown%]"
     }
+  },
+  "device": {
+    "hub": {
+      "name": "Dominaplus Hub"
+    },
+    "lighting": {
+      "name": "Dominaplus Lighting"
+    },
+    "covers": {
+      "name": "Dominaplus Covers"
+    },
+    "thermostats": {
+      "name": "Dominaplus Thermostats"
+    },
+    "antitheft_sensors": {
+      "name": "Dominaplus Antitheft Sensors"
+    },
+    "antitheft_areas": {
+      "name": "Dominaplus Antitheft Areas"
+    },
+    "scenarios": {
+      "name": "Dominaplus Scenarios"
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "antitheft_sensor": {
+        "name": "Antitheft Sensor"
+      },
+      "antitheft_area": {
+        "name": "Antitheft Area"
+      },
+      "scenario_running": {
+        "name": "Running"
+      }
+    },
+    "button": {
+      "scenario_run": {
+        "name": "Run"
+      }
+    },
+    "light": {
+      "light": {
+        "name": "Light {id}"
+      },
+      "dimmer": {
+        "name": "Dimmer {id}"
+      }
+    },
+    "cover": {
+      "shutter": {
+        "name": "Shutter {id}"
+      },
+      "blind": {
+        "name": "Blind {id}"
+      },
+      "window": {
+        "name": "Window {id}"
+      },
+      "cover": {
+        "name": "Cover {id}"
+      }
+    },
+    "climate": {
+      "thermostat": {
+        "name": "Thermostat {id}"
+      }
+    },
+    "switch": {
+      "light_switch": {
+        "name": "Light {id}"
+      },
+      "scenario_switch": {
+        "name": "Scenario {id}"
+      },
+      "generic_switch": {
+        "name": "Switch {family} {id}"
+      }
+    },
+    "sensor": {
+      "thermostat_offset": {
+        "name": "Thermostat Offset {id}"
+      }
+    }
   }
 }

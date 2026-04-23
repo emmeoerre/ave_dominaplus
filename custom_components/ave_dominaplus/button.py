@@ -8,7 +8,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr, entity_registry as er
-from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import ws_commands
 from .const import AVE_FAMILY_SCENARIO
@@ -28,7 +28,7 @@ SCENARIO_BUTTON_UID_SUFFIX = "button"
 async def async_setup_entry(
     _hass: HomeAssistant | None,
     entry: ConfigEntry,
-    async_add_entities: AddConfigEntryEntitiesCallback,
+    async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up AVE dominaplus scenario buttons."""
     webserver: AveWebServer = entry.runtime_data
@@ -105,7 +105,7 @@ def set_button_uid(server: AveWebServer, family: int, ave_device_id: int) -> str
 
 def _format_button_name(ave_name: str) -> str:
     """Return the entity name derived from AVE native scenario name."""
-    return f"{ave_name} Run"
+    return ave_name
 
 
 def update_button(
@@ -205,7 +205,10 @@ class ScenarioButton(ButtonEntity):
             ave_name=ave_name,
         )
 
-        self._name = self.build_name() if name is None else name
+        if name is None:
+            self._attr_translation_key = "scenario_run"
+        else:
+            self._attr_name = name
 
     async def async_added_to_hass(self) -> None:
         """Handle entity added to Home Assistant."""
@@ -225,11 +228,6 @@ class ScenarioButton(ButtonEntity):
     def unique_id(self) -> str:
         """Return the unique ID of the entity."""
         return self._unique_id
-
-    @property
-    def name(self) -> str:
-        """Return the name of the entity."""
-        return self._name
 
     @property
     def available(self) -> bool:
@@ -255,7 +253,7 @@ class ScenarioButton(ButtonEntity):
         """Set entity name."""
         if name is None:
             return
-        self._name = name
+        self._attr_name = name
         self._write_state_or_defer()
 
     def set_ave_name(self, name: str | None) -> None:

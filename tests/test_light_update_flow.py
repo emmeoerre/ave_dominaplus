@@ -187,7 +187,8 @@ def test_update_light_uses_default_name_when_entity_names_disabled(
 
     unique_id = build_uid(server.mac_address, AVE_FAMILY_DIMMER, 4, 12)
     created = server.lights[unique_id]
-    assert created.name == "Dimmer 4"
+    assert created.translation_key == "dimmer"
+    assert created.name is None
 
 
 def test_light_set_ave_name_updates_device_info_name(hass: HomeAssistant) -> None:

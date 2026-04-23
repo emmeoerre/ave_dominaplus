@@ -52,7 +52,8 @@ def test_update_binary_sensor_creates_motion_sensor(hass: HomeAssistant) -> None
     unique_id = set_sensor_uid(AVE_FAMILY_MOTION_SENSOR, 8)
     assert unique_id in server.binary_sensors
     created = server.binary_sensors[unique_id]
-    assert created.name == "Antitheft Sensor 8"
+    assert created.translation_key == "antitheft_sensor"
+    assert getattr(created, "translation_placeholders", {}) == {"id": "8"}
     server.async_add_bs_entities.assert_called_once()
 
 
