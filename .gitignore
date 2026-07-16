@@ -199,4 +199,4 @@ config/*
 !config/configuration.yaml
 
 
-0000032330/*
+_src/*
