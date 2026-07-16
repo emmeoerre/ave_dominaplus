@@ -58,7 +58,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await _async_cleanup_stale_devices(hass, entry)
 
-    hass.async_create_task(webserver.start())
+    entry.async_create_background_task(
+        hass,
+        webserver.start(),
+        "AVE Dominaplus websocket listener",
+    )
     return True
 
 

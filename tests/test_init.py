@@ -43,6 +43,11 @@ async def test_async_setup_entry_success(
             "async_forward_entry_setups",
             new=AsyncMock(return_value=True),
         ) as forward_setups,
+        patch.object(
+            mock_config_entry,
+            "async_create_background_task",
+            wraps=mock_config_entry.async_create_background_task,
+        ) as create_background_task,
     ):
         result = await async_setup_entry(hass, mock_config_entry)
         await hass.async_block_till_done()
@@ -51,6 +56,11 @@ async def test_async_setup_entry_success(
     assert mock_config_entry.runtime_data is mock_webserver
     forward_setups.assert_awaited_once()
     mock_webserver.authenticate.assert_awaited_once()
+    create_background_task.assert_called_once()
+    assert create_background_task.call_args.args[0] is hass
+    assert create_background_task.call_args.args[2] == (
+        "AVE Dominaplus websocket listener"
+    )
     mock_webserver.start.assert_awaited_once()
 
 
