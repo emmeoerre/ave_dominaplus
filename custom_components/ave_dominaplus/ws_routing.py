@@ -77,15 +77,15 @@ def manage_upd(
         _LOGGER.debug("XU Antitheft Unit - engaged", extra={"id": parameters[2]})
     elif parameters[0] == "WT":
         # Several updates for thermostats, using Device ID as identifier
+        server.update_thermostat(
+            server=server,
+            parameters=parameters,
+            records=records,
+            command=None,
+            properties=None,
+            ave_device_id=None,
+        )
         if parameters[1] == "O":
-            server.update_thermostat(
-                server=server,
-                parameters=parameters,
-                records=records,
-                command=None,
-                properties=None,
-                ave_device_id=None,
-            )
             server.update_th_offset(
                 server=server,
                 family=AVE_FAMILY_THERMOSTAT,

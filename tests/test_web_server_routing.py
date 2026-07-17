@@ -165,6 +165,26 @@ def test_manage_upd_routes_thermostat_offset_update(hass: HomeAssistant) -> None
     )
 
 
+def test_manage_upd_routes_direct_thermostat_temperature(
+    hass: HomeAssistant,
+) -> None:
+    """WT/T temperature updates route to the thermostat entity."""
+    server = _new_server(hass)
+    _wire_callbacks(server)
+
+    ws_routing.manage_upd(server, ["WT", "T", "12", "239"], [])
+
+    server.update_thermostat.assert_called_once_with(
+        server=server,
+        parameters=["WT", "T", "12", "239"],
+        records=[],
+        command=None,
+        properties=None,
+        ave_device_id=None,
+    )
+    server.update_th_offset.assert_not_called()
+
+
 def test_manage_upd_skips_tt_until_map_and_commands_loaded(hass: HomeAssistant) -> None:
     """Thermostat command-ID updates are ignored before map metadata is ready."""
     server = _new_server(hass)
