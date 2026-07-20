@@ -8,7 +8,7 @@
           "host": "[%key:common::config_flow::data::host%]",
           "username": "[%key:common::config_flow::data::username%]",
           "password": "[%key:common::config_flow::data::password%]",
-          "ip_address": "Webserver IP address",
+          "ip_address": "Webserver IPv4 address or hostname",
           "get_entities_names": "Get entities names from webserver",
           "fetch_sensor_areas": "Get antitheft sensor areas",
           "fetch_sensors": "Get individual antitheft sensors",
@@ -35,7 +35,7 @@
           "host": "[%key:common::config_flow::data::host%]",
           "username": "[%key:common::config_flow::data::username%]",
           "password": "[%key:common::config_flow::data::password%]",
-          "ip_address": "Webserver IP address",
+          "ip_address": "Webserver IPv4 address or hostname",
           "get_entities_names": "Get entities names from webserver",
           "fetch_sensor_areas": "Get antitheft sensor areas",
           "fetch_sensors": "Get individual antitheft sensors",
@@ -63,7 +63,7 @@
         "title": "Configure discovered AVE webserver",
         "description": "Review and adjust options before adding this integration.",
         "data": {
-          "ip_address": "Webserver IP address",
+          "ip_address": "Webserver IPv4 address or hostname",
           "get_entities_names": "Get entities names from webserver",
           "fetch_sensor_areas": "Get antitheft sensor areas",
           "fetch_sensors": "Get individual antitheft sensors",
@@ -93,6 +93,7 @@
       "already_configured": "Device is already configured",
       "already_in_progress": "[%key:common::config_flow::abort::already_in_progress_device%]",
       "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]",
+      "ipv4_required": "IPv6-only discovery is not supported; configure the AVE webserver manually using an IPv4 address or hostname",
       "not_ave_webserver": "Discovered device is not an AVE webserver",
       "unknown": "[%key:common::config_flow::error::unknown%]"
     }

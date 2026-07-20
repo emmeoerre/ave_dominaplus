@@ -5,7 +5,7 @@
         "title": "Add AVE dominaplus",
         "description": "Set a connection to the AVE dominaplus webserver.",
         "data": {
-          "ip_address": "Webserver IP address",
+          "ip_address": "Webserver IPv4 address or hostname",
           "get_entities_names": "Get entities names from webserver",
           "fetch_sensor_areas": "Get antitheft sensor areas",
           "fetch_sensors": "Get individual antitheft sensors",
@@ -29,7 +29,7 @@
         "title": "Reconfigure AVE dominaplus",
         "description": "Change the settings of the AVE dominaplus integration.",
         "data": {
-          "ip_address": "Webserver IP address",
+          "ip_address": "Webserver IPv4 address or hostname",
           "get_entities_names": "Get entities names from webserver",
           "fetch_sensor_areas": "Get antitheft sensor areas",
           "fetch_sensors": "Get individual antitheft sensors",
@@ -57,7 +57,7 @@
         "title": "Configure discovered AVE webserver",
         "description": "Review and adjust options before adding this integration.",
         "data": {
-          "ip_address": "Webserver IP address",
+          "ip_address": "Webserver IPv4 address or hostname",
           "get_entities_names": "Get entities names from webserver",
           "fetch_sensor_areas": "Get antitheft sensor areas",
           "fetch_sensors": "Get individual antitheft sensors",
@@ -87,6 +87,7 @@
       "already_configured": "Device is already configured",
       "already_in_progress": "Config flow already in progress for this device",
       "cannot_connect": "Failed to connect",
+      "ipv4_required": "IPv6-only discovery is not supported; configure the AVE webserver manually using an IPv4 address or hostname",
       "not_ave_webserver": "Discovered device is not an AVE webserver",
       "unknown": "Unknown error"
     }

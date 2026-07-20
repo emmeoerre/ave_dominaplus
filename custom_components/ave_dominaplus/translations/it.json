@@ -5,7 +5,7 @@
         "title": "Aggiungi AVE dominaplus",
         "description": "Configura una connessione al webserver AVE dominaplus.",
         "data": {
-          "ip_address": "Indirizzo IP del webserver",
+          "ip_address": "Indirizzo IPv4 o nome host del webserver",
           "get_entities_names": "Usa i nomi entità dal webserver",
           "fetch_sensor_areas": "Importa le aree antifurto",
           "fetch_sensors": "Importa i sensori antifurto individuali",
@@ -29,7 +29,7 @@
         "title": "Riconfigura AVE dominaplus",
         "description": "Modifica le impostazioni dell'integrazione AVE dominaplus.",
         "data": {
-          "ip_address": "Indirizzo IP del webserver",
+          "ip_address": "Indirizzo IPv4 o nome host del webserver",
           "get_entities_names": "Usa i nomi entità dal webserver",
           "fetch_sensor_areas": "Importa le aree antifurto",
           "fetch_sensors": "Importa i sensori antifurto individuali",
@@ -57,7 +57,7 @@
         "title": "Configura il webserver AVE rilevato",
         "description": "Controlla e modifica le opzioni prima di aggiungere l'integrazione.",
         "data": {
-          "ip_address": "Indirizzo IP del webserver",
+          "ip_address": "Indirizzo IPv4 o nome host del webserver",
           "get_entities_names": "Usa i nomi entità dal webserver",
           "fetch_sensor_areas": "Importa le aree antifurto",
           "fetch_sensors": "Importa i sensori antifurto individuali",
@@ -87,6 +87,7 @@
       "already_configured": "Dispositivo già configurato",
       "already_in_progress": "Flusso di configurazione già in corso per questo dispositivo",
       "cannot_connect": "Connessione non riuscita",
+      "ipv4_required": "Il rilevamento solo IPv6 non è supportato; configura manualmente il webserver AVE usando un indirizzo IPv4 o un nome host",
       "not_ave_webserver": "Il dispositivo scoperto non è un webserver AVE",
       "unknown": "Errore sconosciuto"
     }

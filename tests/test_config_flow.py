@@ -33,11 +33,15 @@ MOCK_USER_INPUT: dict[str, object] = {
 }
 
 
-def _build_discovery_info(host: str = "192.168.1.20") -> ZeroconfServiceInfo:
+def _build_discovery_info(
+    host: str = "192.168.1.20", addresses: list[str] | None = None
+) -> ZeroconfServiceInfo:
     """Build a Zeroconf discovery payload for tests."""
+    address_values = addresses if addresses is not None else [host]
+    parsed_addresses = [ip_address(address) for address in address_values]
     return ZeroconfServiceInfo(
         ip_address=ip_address(host),
-        ip_addresses=[ip_address(host)],
+        ip_addresses=parsed_addresses,
         port=80,
         hostname="ave-ws.local.",
         type="_workstation._tcp.local.",
@@ -135,6 +139,54 @@ async def test_zeroconf_confirm_and_configure(hass: HomeAssistant) -> None:
     created_data = result.get("data")
     assert isinstance(created_data, dict)
     assert created_data[CONF_IP_ADDRESS] == "192.168.1.20"
+
+
+async def test_zeroconf_aborts_ipv6_only_discovery(hass: HomeAssistant) -> None:
+    """Test IPv6-only discovery is ignored before device validation."""
+    validate_input = AsyncMock()
+    with patch(
+        "custom_components.ave_dominaplus.config_flow.AveWsConfigFlow.validate_input",
+        new=validate_input,
+    ):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={"source": config_entries.SOURCE_ZEROCONF},
+            data=_build_discovery_info("fd78:d481:5b8e:4913:679:b7ff:feb2:efbf"),
+        )
+
+    assert result.get("type") is data_entry_flow.FlowResultType.ABORT
+    assert result.get("reason") == "ipv4_required"
+    validate_input.assert_not_awaited()
+
+
+async def test_zeroconf_uses_ipv4_from_mixed_discovery(
+    hass: HomeAssistant,
+) -> None:
+    """Test mixed discovery validates the advertised IPv4 address."""
+    validate_input = AsyncMock(
+        return_value={
+            "title": "AVE webserver aa:bb:cc:dd:ee:ff",
+            "mac_address": "aa:bb:cc:dd:ee:ff",
+        }
+    )
+    with patch(
+        "custom_components.ave_dominaplus.config_flow.AveWsConfigFlow.validate_input",
+        new=validate_input,
+    ):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={"source": config_entries.SOURCE_ZEROCONF},
+            data=_build_discovery_info(
+                "fd78:d481:5b8e:4913:679:b7ff:feb2:efbf",
+                ["fd78:d481:5b8e:4913:679:b7ff:feb2:efbf", "192.168.1.20"],
+            ),
+        )
+
+    assert result.get("type") is data_entry_flow.FlowResultType.FORM
+    assert result.get("step_id") == "zeroconf_confirm"
+    validate_input.assert_awaited_once()
+    validated_input = validate_input.await_args.args[0]
+    assert validated_input[CONF_IP_ADDRESS] == "192.168.1.20"
 
 
 async def test_reconfigure_flow_updates_entry(

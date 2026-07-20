@@ -115,11 +115,17 @@ class AveWsConfigFlow(ConfigFlow, domain=DOMAIN):
             discovery_info.host,
             [str(ip_addr) for ip_addr in discovery_info.ip_addresses],
         )
-        discovered_host = discovery_info.host
-        for ip_addr in discovery_info.ip_addresses:
-            if ip_addr.version == 4:
-                discovered_host = str(ip_addr)
-                break
+        discovered_host = next(
+            (
+                str(ip_addr)
+                for ip_addr in discovery_info.ip_addresses
+                if ip_addr.version == 4
+            ),
+            None,
+        )
+        if discovered_host is None:
+            _LOGGER.debug("Ignoring AVE Zeroconf discovery without an IPv4 address")
+            return self.async_abort(reason="ipv4_required")
 
         user_input = {
             CONF_IP_ADDRESS: discovered_host,
