@@ -41,7 +41,7 @@ During setup/reconfigure you can tune these options:
 - `fetch_scenarios`: Enable scenarios devices and related entities.
 - `fetch_sensor_areas`: Enable alarm area binary sensors.
 - `fetch_sensors`: Enable individual alarm sensor entities (discovered when they first report events).
-- `get_entities_names`: If enabled, use names from AVE configuration instead of generated names.
+- `get_entities_names`: If enabled, use AVE names for device labels instead of translated generated labels.
 
 ### Installation/network parameters
 
@@ -126,21 +126,18 @@ Other devices are not yet supported either for lack of time or lack of devices a
 
 ## 🏷️ About Device Names
 
-The integration supports two naming strategies:
+The **Use names from webserver** option controls device labels. When enabled,
+supported endpoints use names from the Dominaplus configuration. When disabled,
+the integration uses translated labels such as `Light 34`, `Shutter 12`, and
+`Thermostat 7`.
 
-1. **Names from Webserver** (Recommended):
-   - Entity IDs like: `switch.normalized_ave_name`.
-   - Names are fetched from the Dominaplus configuration.
-   - Changes are fetched at every restart.
+Primary entities use the device name without repeating it. Secondary entities
+use translated labels such as `Run`, `Running`, `Offset`, and `Status`.
 
-2. **Generated Names**:
-   - Entity IDs like: `switch.<ave_family_id>_<ave_device_id>`.
-   - Names are automatically generated.
-
-**Tip**: If you plan to customize entity names:
-The integration tries its best to not override your custom names even if they are changed in the AVE apps. But for better measure:
-- First, enable **"Get entities names from webserver"** to discover all entities.
-- Then, disable this option before setting custom names to prevent overwriting.
+Home Assistant assigns entity IDs when entities are first created. Upgrading the
+integration does not rename existing entity IDs, so automations and dashboards
+continue to work. New installations receive the cleaner naming scheme. Names set
+by a user in Home Assistant are preserved for both entities and devices.
 
 ---
 
@@ -257,4 +254,3 @@ Development setup and debugging guide (VS Code on Windows + WSL): [docs/developm
 ## 📜 License
 
 This project is licensed under the **MIT License**. See the `LICENSE` file for more details.
-

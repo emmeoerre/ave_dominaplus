@@ -14,7 +14,6 @@ from custom_components.ave_dominaplus.climate import (
     AveThermostat,
     adopt_existing_sensors,
     async_setup_entry,
-    check_name_changed,
     update_thermostat,
 )
 from custom_components.ave_dominaplus.const import AVE_FAMILY_THERMOSTAT
@@ -168,26 +167,6 @@ def test_update_thermostat_maps_remaining_command_and_wt_variants(hass) -> None:
     assert update.call_count == 9
 
 
-def test_check_name_changed_true_and_false_branches(hass) -> None:
-    """Name-change helper should detect override and missing entry paths."""
-    registry = Mock()
-    registry.async_get_entity_id.return_value = "climate.test"
-    registry.async_get.return_value = SimpleNamespace(name="New", original_name="Old")
-
-    with patch(
-        "custom_components.ave_dominaplus.climate.er.async_get",
-        return_value=registry,
-    ):
-        assert check_name_changed(hass, "uid") is True
-
-    registry.async_get_entity_id.return_value = None
-    with patch(
-        "custom_components.ave_dominaplus.climate.er.async_get",
-        return_value=registry,
-    ):
-        assert check_name_changed(hass, "uid") is False
-
-
 @pytest.mark.asyncio
 async def test_thermostat_entity_edge_paths_and_lifecycle(hass) -> None:
     """Thermostat entity should cover lifecycle, guards, and sync-device branches."""
@@ -204,7 +183,8 @@ async def test_thermostat_entity_edge_paths_and_lifecycle(hass) -> None:
     thermostat.async_write_ha_state = Mock()
 
     assert thermostat.unique_id == "uid"
-    assert thermostat.name == "Thermostat 9"
+    assert thermostat.name is None
+    assert thermostat._attr_device_info.get("translation_key") == "thermostat"
     assert thermostat.available is False
 
     with (
@@ -261,28 +241,12 @@ async def test_thermostat_entity_edge_paths_and_lifecycle(hass) -> None:
     thermostat._sync_device_name("NoIdentifiers")
     thermostat._attr_device_info = {"identifiers": {("ave", "id")}}
 
-    registry = Mock()
-    registry.async_get_device.return_value = None
     with patch(
-        "custom_components.ave_dominaplus.climate.dr.async_get", return_value=registry
-    ):
-        thermostat._sync_device_name("NoDevice")
-
-    registry.async_get_device.return_value = SimpleNamespace(
-        id="dev", name_by_user=None, name="Old"
-    )
-    with (
-        patch(
-            "custom_components.ave_dominaplus.climate.build_endpoint_device_info",
-            return_value={"identifiers": {("ave", "id")}, "name": "Resolved"},
-        ),
-        patch(
-            "custom_components.ave_dominaplus.climate.dr.async_get",
-            return_value=registry,
-        ),
-    ):
+        "custom_components.ave_dominaplus.climate.sync_device_registry_name"
+    ) as sync_name:
         thermostat._sync_device_name("Resolved")
+    sync_name.assert_called_once()
 
     thermostat.set_ave_name(None)
     thermostat.set_address_dec(25)
-    assert thermostat.build_name() == "Thermostat 9"
+    assert thermostat.name is None

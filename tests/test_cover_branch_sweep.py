@@ -18,7 +18,6 @@ from custom_components.ave_dominaplus.cover import (
     adopt_existing_covers,
     async_setup_entry,
     build_uid,
-    check_name_changed,
     update_cover,
 )
 from homeassistant.exceptions import ConfigEntryNotReady
@@ -175,7 +174,8 @@ async def test_adopt_existing_covers_filters_and_adopts_original_name(hass) -> N
 
     assert "uid-ok" in server.covers
     assert isinstance(server.covers["uid-ok"], AveCover)
-    assert server.covers["uid-ok"].name == "Original Cover"
+    assert server.covers["uid-ok"].name is None
+    assert server.covers["uid-ok"]._ave_name == "Original Cover"
     server.async_add_cv_entities.assert_called_once()
 
 
@@ -208,8 +208,8 @@ async def test_adopt_existing_covers_returns_when_registry_missing(hass) -> None
 
 
 @pytest.mark.asyncio
-async def test_adopt_existing_covers_prefers_entity_name(hass) -> None:
-    """Adoption should prefer entity.name over original_name when both are present."""
+async def test_adopt_existing_covers_ignores_user_entity_name(hass) -> None:
+    """Adoption should not feed a user entity name back into AVE metadata."""
     server = make_server(hass)
     server.mac_address = "aa:bb:cc:dd:ee:ff"
     server.async_add_cv_entities = Mock()
@@ -237,7 +237,9 @@ async def test_adopt_existing_covers_prefers_entity_name(hass) -> None:
     ):
         await adopt_existing_covers(server, _entry(server))
 
-    assert server.covers["uid-name"].name == "Registry Name"
+    adopted = server.covers["uid-name"]
+    assert adopted.name is None
+    assert adopted._ave_name == "Original Name"
 
 
 def test_update_cover_ignores_unsupported_family(hass) -> None:
@@ -356,24 +358,6 @@ def test_update_cover_builds_uid_when_initial_lookup_returns_none(hass) -> None:
     server.async_add_cv_entities.assert_called_once()
 
 
-def test_check_name_changed_handles_name_override_and_missing_entry(hass) -> None:
-    """Name-change helper should detect renamed entities and missing entries."""
-    registry = Mock()
-    registry.async_get_entity_id.return_value = "cover.test"
-    registry.async_get.return_value = SimpleNamespace(name="New", original_name="Old")
-
-    with patch(
-        "custom_components.ave_dominaplus.cover.er.async_get", return_value=registry
-    ):
-        assert check_name_changed(hass, "uid") is True
-
-    registry.async_get_entity_id.return_value = None
-    with patch(
-        "custom_components.ave_dominaplus.cover.er.async_get", return_value=registry
-    ):
-        assert check_name_changed(hass, "uid") is False
-
-
 @pytest.mark.asyncio
 async def test_cover_entity_methods_and_properties_cover_remaining_paths(hass) -> None:
     """Cover entity helpers should handle stop/no-webserver and property branches."""
@@ -383,7 +367,8 @@ async def test_cover_entity_methods_and_properties_cover_remaining_paths(hass) -
     cover = AveCover("uid", AVE_FAMILY_SHUTTER_ROLLING, 5, 1, server)
     cover.async_write_ha_state = Mock()
 
-    assert cover.name == "Shutter 5"
+    assert cover.name is None
+    assert cover._attr_device_info.get("translation_key") == "shutter"
     assert cover.available is True
     assert cover.is_closed is False
     assert cover.is_opening is False
@@ -424,14 +409,14 @@ def test_cover_mutators_and_write_defer_paths(hass) -> None:
     cover = AveCover("uid", AVE_FAMILY_SHUTTER_SLIDING, 6, None, server)
     cover.async_write_ha_state = Mock()
 
-    assert cover.name == "Blind 6"
+    assert cover.name is None
+    assert cover._attr_device_info.get("translation_key") == "blind"
     assert cover.extra_state_attributes["AVE address_hex"] == ""
 
     cover.update_state(None)
     cover.update_state(0)
     cover.update_state(6)
 
-    cover.set_name(None)
     cover.set_ave_name("AVE Blind")
     cover.set_address_dec(33)
     assert cover.extra_state_attributes["AVE address_hex"] == "21"
@@ -442,7 +427,7 @@ def test_cover_mutators_and_write_defer_paths(hass) -> None:
 
     cover.entity_id = "cover.blind"
     cover._pending_state_write = False
-    cover.set_name("Blind Custom")
+    cover._write_state_or_defer()
     cover.async_write_ha_state.assert_called()
 
 
@@ -455,7 +440,7 @@ def test_cover_build_name_variants(hass) -> None:
     hung = AveCover("u3", AVE_FAMILY_SHUTTER_HUNG, 3, None, server)
     unknown = AveCover("u4", 999, 4, None, server)
 
-    assert rolling.name == "Shutter 1"
-    assert sliding.name == "Blind 2"
-    assert hung.name == "Window 3"
-    assert unknown.name == "Cover 4"
+    assert rolling._attr_device_info.get("translation_key") == "shutter"
+    assert sliding._attr_device_info.get("translation_key") == "blind"
+    assert hung._attr_device_info.get("translation_key") == "window"
+    assert unknown._attr_device_info.get("translation_key") == "device_family"

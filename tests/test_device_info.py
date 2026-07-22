@@ -82,7 +82,8 @@ def test_device_info_falls_back_to_host() -> None:
     assert info.get("identifiers") == {(DOMAIN, "hub_10.0.0.99")}
     assert info.get("manufacturer") == "AVE"
     assert info.get("model") == "AVE dominaplus webserver"
-    assert info.get("name") == "Dominaplus Hub"
+    assert info.get("name") is None
+    assert info.get("translation_key") == "hub"
     assert info.get("configuration_url") == "http://10.0.0.99"
 
 
@@ -100,7 +101,9 @@ def test_endpoint_device_info_is_nested_under_hub() -> None:
         (DOMAIN, "endpoint_aa:bb:cc:dd:ee:ff_light_2_45")
     }
     assert info.get("via_device") == (DOMAIN, "endpoint_aa:bb:cc:dd:ee:ff_lighting")
-    assert info.get("name") == "Dimmer 45"
+    assert info.get("name") is None
+    assert info.get("translation_key") == "dimmer"
+    assert info.get("translation_placeholders") == {"id": "45"}
     assert info.get("model") == "AVE dominaplus lighting"
     assert info.get("manufacturer") == "AVE"
     assert info.get("configuration_url") == "http://10.0.0.99"
@@ -118,7 +121,9 @@ def test_endpoint_onoff_light_uses_own_child_identifier() -> None:
 
     assert info.get("identifiers") == {(DOMAIN, "endpoint_entry-123_light_1_11")}
     assert info.get("via_device") == (DOMAIN, "endpoint_entry-123_lighting")
-    assert info.get("name") == "Light 11"
+    assert info.get("name") is None
+    assert info.get("translation_key") == "light"
+    assert info.get("translation_placeholders") == {"id": "11"}
 
 
 def test_ensure_lighting_parent_device_registers_under_hub(hass) -> None:
@@ -135,7 +140,7 @@ def test_ensure_lighting_parent_device_registers_under_hub(hass) -> None:
         identifiers={(DOMAIN, "endpoint_aa:bb:cc:dd:ee:ff_lighting")},
         manufacturer="AVE",
         model="AVE dominaplus lighting",
-        name="Dominaplus Lighting",
+        translation_key="lighting",
         via_device=(DOMAIN, "hub_aa:bb:cc:dd:ee:ff"),
         configuration_url="http://10.0.0.99",
     )
@@ -155,7 +160,7 @@ def test_ensure_scenarios_parent_device_registers_under_hub(hass) -> None:
         identifiers={(DOMAIN, "endpoint_aa:bb:cc:dd:ee:ff_scenarios")},
         manufacturer="AVE",
         model="AVE dominaplus scenarios",
-        name="Dominaplus Scenarios",
+        translation_key="scenarios",
         via_device=(DOMAIN, "hub_aa:bb:cc:dd:ee:ff"),
         configuration_url="http://10.0.0.99",
     )
@@ -175,7 +180,7 @@ def test_ensure_covers_parent_device_registers_under_hub(hass) -> None:
         identifiers={(DOMAIN, "endpoint_aa:bb:cc:dd:ee:ff_covers")},
         manufacturer="AVE",
         model="AVE dominaplus covers",
-        name="Dominaplus Covers",
+        translation_key="covers",
         via_device=(DOMAIN, "hub_aa:bb:cc:dd:ee:ff"),
         configuration_url="http://10.0.0.99",
     )
@@ -195,7 +200,7 @@ def test_ensure_thermostats_parent_device_registers_under_hub(hass) -> None:
         identifiers={(DOMAIN, "endpoint_aa:bb:cc:dd:ee:ff_thermostats")},
         manufacturer="AVE",
         model="AVE dominaplus thermostats",
-        name="Dominaplus Thermostats",
+        translation_key="thermostats",
         via_device=(DOMAIN, "hub_aa:bb:cc:dd:ee:ff"),
         configuration_url="http://10.0.0.99",
     )
@@ -292,7 +297,9 @@ def test_endpoint_device_info_uses_entry_fallback_identifier() -> None:
 
     assert info.get("identifiers") == {(DOMAIN, "endpoint_entry-123_thermostat_7")}
     assert info.get("via_device") == (DOMAIN, "endpoint_entry-123_thermostats")
-    assert info.get("name") == "Thermostat 7"
+    assert info.get("name") is None
+    assert info.get("translation_key") == "thermostat"
+    assert info.get("translation_placeholders") == {"id": "7"}
 
 
 def test_endpoint_cover_uses_per_device_identifier_and_parent() -> None:
@@ -307,7 +314,9 @@ def test_endpoint_cover_uses_per_device_identifier_and_parent() -> None:
 
     assert info.get("identifiers") == {(DOMAIN, "endpoint_entry-123_cover_3_14")}
     assert info.get("via_device") == (DOMAIN, "endpoint_entry-123_covers")
-    assert info.get("name") == "Shutter 14"
+    assert info.get("name") is None
+    assert info.get("translation_key") == "shutter"
+    assert info.get("translation_placeholders") == {"id": "14"}
 
 
 def test_endpoint_thermostat_name_is_cleaned_for_offset_suffix() -> None:
@@ -322,7 +331,9 @@ def test_endpoint_thermostat_name_is_cleaned_for_offset_suffix() -> None:
     )
 
     assert info.get("identifiers") == {(DOMAIN, "endpoint_entry-123_thermostat_9")}
-    assert info.get("name") == "Thermostat Living Room"
+    assert info.get("name") is None
+    assert info.get("translation_key") == "thermostat_named"
+    assert info.get("translation_placeholders") == {"name": "Living Room"}
 
 
 def test_endpoint_thermostat_name_keeps_existing_prefix() -> None:
@@ -350,7 +361,8 @@ def test_endpoint_motion_sensors_are_grouped() -> None:
     )
 
     assert info.get("identifiers") == {(DOMAIN, "endpoint_entry-123_antitheft_sensors")}
-    assert info.get("name") == "Dominaplus Antitheft Sensors"
+    assert info.get("name") is None
+    assert info.get("translation_key") == "antitheft_sensors"
 
 
 def test_endpoint_scenario_name_falls_back_to_device_id() -> None:
@@ -365,7 +377,9 @@ def test_endpoint_scenario_name_falls_back_to_device_id() -> None:
 
     assert info.get("identifiers") == {(DOMAIN, "endpoint_entry-123_scenario_29")}
     assert info.get("via_device") == (DOMAIN, "endpoint_entry-123_scenarios")
-    assert info.get("name") == "Scenario 29"
+    assert info.get("name") is None
+    assert info.get("translation_key") == "scenario"
+    assert info.get("translation_placeholders") == {"id": "29"}
 
 
 def test_endpoint_scenario_name_adds_prefix_when_needed() -> None:
@@ -379,7 +393,9 @@ def test_endpoint_scenario_name_adds_prefix_when_needed() -> None:
         ave_name="Evening",
     )
 
-    assert info.get("name") == "Scenario Evening"
+    assert info.get("name") is None
+    assert info.get("translation_key") == "scenario_named"
+    assert info.get("translation_placeholders") == {"name": "Evening"}
 
 
 def test_endpoint_scenario_name_keeps_existing_prefix() -> None:

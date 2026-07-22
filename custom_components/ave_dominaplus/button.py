@@ -7,7 +7,7 @@ from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
-from homeassistant.helpers import device_registry as dr, entity_registry as er
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import ws_commands
@@ -70,22 +70,24 @@ async def adopt_existing_buttons(server: AveWebServer, entry: ConfigEntry) -> No
             if family != AVE_FAMILY_SCENARIO or not server.settings.fetch_scenarios:
                 continue
 
-            name = entity.name if entity.name is not None else entity.original_name
+            ave_name = None
+            if server.settings.get_entity_names and entity.original_name:
+                ave_name = _scenario_source_name(entity.original_name, " Run")
 
             button = ScenarioButton(
                 unique_id=entity.unique_id,
                 family=family,
                 ave_device_id=ave_device_id,
                 webserver=server,
-                name=name,
+                name=None,
+                ave_name=ave_name,
             )
             button.entity_id = entity.entity_id
 
             server.buttons[entity.unique_id] = button
             server.async_add_bt_entities([button])
             _LOGGER.info(
-                "Adopted existing button entity with name %s with unique_id %s",
-                button.name,
+                "Adopted existing button entity with unique_id %s",
                 button.unique_id,
             )
     except Exception:
@@ -103,9 +105,12 @@ def set_button_uid(server: AveWebServer, family: int, ave_device_id: int) -> str
     )
 
 
-def _format_button_name(ave_name: str) -> str:
-    """Return the entity name derived from AVE native scenario name."""
-    return f"{ave_name} Run"
+def _scenario_source_name(original_name: str, suffix: str) -> str:
+    """Recover an AVE scenario name from a legacy entity label."""
+    # Existing registry names included the entity role, such as "Evening Run".
+    if original_name.endswith(suffix):
+        return original_name[: -len(suffix)]
+    return original_name
 
 
 def update_button(
@@ -134,14 +139,10 @@ def update_button(
         button: ScenarioButton = server.buttons[unique_id]
         if name is not None and server.settings.get_entity_names:
             button.set_ave_name(name)
-            if not check_name_changed(server.hass, unique_id):
-                button.set_name(_format_button_name(name))
         return
 
-    entity_name = None
     entity_ave_name = None
     if name is not None and server.settings.get_entity_names:
-        entity_name = _format_button_name(name)
         entity_ave_name = name
 
     button = ScenarioButton(
@@ -149,7 +150,7 @@ def update_button(
         family=family,
         ave_device_id=ave_device_id,
         webserver=server,
-        name=entity_name,
+        name=None,
         ave_name=entity_ave_name,
     )
 
@@ -158,28 +159,12 @@ def update_button(
     server.async_add_bt_entities([button])
 
 
-def check_name_changed(hass: HomeAssistant, unique_id: str) -> bool:
-    """Check if the name of the entity has changed in HA registry."""
-    entity_registry = er.async_get(hass)
-
-    entry_id = entity_registry.async_get_entity_id(
-        "button", "ave_dominaplus", unique_id
-    )
-    if entry_id:
-        entity_entry = entity_registry.async_get(entry_id)
-        if entity_entry is not None:
-            return (
-                entity_entry.name is not None
-                and entity_entry.original_name != entity_entry.name
-            )
-    return False
-
-
 class ScenarioButton(ButtonEntity):
     """Representation of an AVE scenario run button."""
 
     _attr_has_entity_name = True
     _attr_should_poll = False
+    _attr_translation_key = "scenario_run"
 
     def __init__(
         self,
@@ -205,8 +190,6 @@ class ScenarioButton(ButtonEntity):
             ave_name=ave_name,
         )
 
-        self._name = self.build_name() if name is None else name
-
     async def async_added_to_hass(self) -> None:
         """Handle entity added to Home Assistant."""
         await super().async_added_to_hass()
@@ -225,11 +208,6 @@ class ScenarioButton(ButtonEntity):
     def unique_id(self) -> str:
         """Return the unique ID of the entity."""
         return self._unique_id
-
-    @property
-    def name(self) -> str:
-        """Return the name of the entity."""
-        return self._name
 
     @property
     def available(self) -> bool:
@@ -251,13 +229,6 @@ class ScenarioButton(ButtonEntity):
         if self._webserver:
             await ws_commands.scenario_execute(self._webserver, self.ave_device_id)
 
-    def set_name(self, name: str | None) -> None:
-        """Set entity name."""
-        if name is None:
-            return
-        self._name = name
-        self._write_state_or_defer()
-
     def set_ave_name(self, name: str | None) -> None:
         """Set AVE native name."""
         if name is not None:
@@ -277,7 +248,7 @@ class ScenarioButton(ButtonEntity):
         sync_device_registry_name(
             self.hass,
             updated_device_info,
-            device_registry_getter=dr.async_get,
+            config_entry_id=self._webserver.config_entry_id,
         )
 
     def _write_state_or_defer(self) -> None:
@@ -286,7 +257,3 @@ class ScenarioButton(ButtonEntity):
             self._pending_state_write = True
             return
         self.async_write_ha_state()
-
-    def build_name(self) -> str:
-        """Build default entity name."""
-        return f"Scenario {self.ave_device_id} Run"

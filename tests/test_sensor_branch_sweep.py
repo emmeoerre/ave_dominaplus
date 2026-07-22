@@ -12,7 +12,6 @@ from custom_components.ave_dominaplus.sensor import (
     ThermostatOffset,
     adopt_existing_sensors,
     async_setup_entry,
-    check_name_changed,
     set_sensor_uid,
 )
 from homeassistant.components.sensor import SensorDeviceClass
@@ -96,7 +95,9 @@ async def test_adopt_existing_numbers_filters_and_uses_original_name(hass) -> No
         await adopt_existing_sensors(server, _entry(server))
 
     assert "ave_x_thermostat_offset_16_9" in server.numbers
-    assert server.numbers["ave_x_thermostat_offset_16_9"].name == "Original Offset"
+    adopted = server.numbers["ave_x_thermostat_offset_16_9"]
+    assert adopted._attr_translation_key == "thermostat_offset"
+    assert adopted._ave_name == "Original Offset"
     server.async_add_number_entities.assert_called_once()
 
 
@@ -135,24 +136,6 @@ def test_sensor_uid_helper_covers_non_thermostat_branch(hass) -> None:
     assert uid == "ave_aa:bb_number_999_4"
 
 
-def test_sensor_name_changed_helper_true_and_false(hass) -> None:
-    """Name-change helper should detect override and missing entry cases."""
-    registry = Mock()
-    registry.async_get_entity_id.return_value = "number.test"
-    registry.async_get.return_value = SimpleNamespace(name="New", original_name="Old")
-
-    with patch(
-        "custom_components.ave_dominaplus.sensor.er.async_get", return_value=registry
-    ):
-        assert check_name_changed(hass, "uid") is True
-
-    registry.async_get_entity_id.return_value = None
-    with patch(
-        "custom_components.ave_dominaplus.sensor.er.async_get", return_value=registry
-    ):
-        assert check_name_changed(hass, "uid") is False
-
-
 def test_sensor_properties_mutators_and_write_paths(hass) -> None:
     """Thermostat offset entity should cover property and mutator guard branches."""
     server = make_server(hass)
@@ -174,8 +157,6 @@ def test_sensor_properties_mutators_and_write_paths(hass) -> None:
 
     entity.update_value(None)
     entity.update_value(1.2)
-    entity.set_name(None)
-    entity.set_name("Offset Name")
     entity.set_address_dec(25)
 
     entity.entity_id = None

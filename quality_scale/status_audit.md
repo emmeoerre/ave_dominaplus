@@ -250,9 +250,9 @@ Evidence: no clear low-value/noisy entities were identified for default disablem
 Action: suggested candidate only if needed in future: optional hub connectivity helper entity; keep thermostat offset enabled (user-facing).
 
 16. entity-translations
-Status: Missing
-Evidence: only thermostat has translation_key; most entities still use runtime/manual names.
-Action: add entity translation keys and strings for each stable entity type.
+Status: Covered
+Evidence: integration-owned device and secondary-entity labels use translation keys with English and Italian strings; primary entities use device names.
+Action: keep translation-loader and naming-registry migration tests current when adding entity types.
 
 17. exception-translations
 Status: Missing

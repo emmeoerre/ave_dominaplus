@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
 from custom_components.ave_dominaplus import ws_commands
@@ -50,7 +49,9 @@ def test_update_button_creates_scenario_button_with_ave_name(
     unique_id = set_button_uid(server, AVE_FAMILY_SCENARIO, 8)
     assert unique_id in server.buttons
     created = server.buttons[unique_id]
-    assert created.name == "Evening Run"
+    assert created._attr_translation_key == "scenario_run"
+    assert created._ave_name == "Evening"
+    assert created._attr_device_info.get("translation_key") == "scenario_named"
     server.async_add_bt_entities.assert_called_once()
     assert unique_id == build_uid(
         server.mac_address,
@@ -80,11 +81,7 @@ def test_update_button_existing_respects_manual_rename(hass: HomeAssistant) -> N
     button.set_ave_name = Mock()
     server.buttons[unique_id] = button
 
-    with patch(
-        "custom_components.ave_dominaplus.button.check_name_changed",
-        return_value=True,
-    ):
-        update_button(server, AVE_FAMILY_SCENARIO, 8, name="Evening")
+    update_button(server, AVE_FAMILY_SCENARIO, 8, name="Evening")
 
     button.set_ave_name.assert_called_once_with("Evening")
     button.set_name.assert_not_called()
@@ -97,12 +94,16 @@ def test_update_button_existing_refreshes_device_info_name(hass: HomeAssistant) 
     update_button(server, AVE_FAMILY_SCENARIO, 21, name=None)
     unique_id = set_button_uid(server, AVE_FAMILY_SCENARIO, 21)
     button = server.buttons[unique_id]
-    assert button._attr_device_info.get("name") == "Scenario 21"
+    assert button._attr_device_info.get("translation_key") == "scenario"
+    assert button._attr_device_info.get("translation_placeholders") == {"id": "21"}
 
     update_button(server, AVE_FAMILY_SCENARIO, 21, name="Evening")
 
-    assert button.name == "Evening Run"
-    assert button._attr_device_info.get("name") == "Scenario Evening"
+    assert button._attr_translation_key == "scenario_run"
+    assert button._attr_device_info.get("translation_key") == "scenario_named"
+    assert button._attr_device_info.get("translation_placeholders") == {
+        "name": "Evening"
+    }
 
 
 def test_scenario_button_sync_device_name_respects_name_by_user(
@@ -114,21 +115,13 @@ def test_scenario_button_sync_device_name_respects_name_by_user(
     button.entity_id = "button.uid"
     button.async_write_ha_state = Mock()
 
-    device_registry = Mock()
-    device_registry.async_get_device.return_value = SimpleNamespace(
-        id="dev-1",
-        name_by_user="Custom",
-        name="Old",
-    )
-
     with patch(
-        "custom_components.ave_dominaplus.button.dr.async_get",
-        return_value=device_registry,
-    ):
+        "custom_components.ave_dominaplus.button.sync_device_registry_name"
+    ) as sync_name:
         button.set_ave_name("Evening")
 
-    assert button._attr_device_info.get("name") == "Scenario Evening"
-    device_registry.async_update_device.assert_not_called()
+    assert button._attr_device_info.get("translation_key") == "scenario_named"
+    sync_name.assert_called_once()
 
 
 def test_scenario_button_sync_device_name_updates_when_not_customized(
@@ -140,23 +133,12 @@ def test_scenario_button_sync_device_name_updates_when_not_customized(
     button.entity_id = "button.uid"
     button.async_write_ha_state = Mock()
 
-    device_registry = Mock()
-    device_registry.async_get_device.return_value = SimpleNamespace(
-        id="dev-2",
-        name_by_user=None,
-        name="Scenario 18",
-    )
-
     with patch(
-        "custom_components.ave_dominaplus.button.dr.async_get",
-        return_value=device_registry,
-    ):
+        "custom_components.ave_dominaplus.button.sync_device_registry_name"
+    ) as sync_name:
         button.set_ave_name("Night")
 
-    device_registry.async_update_device.assert_called_once_with(
-        device_id="dev-2",
-        name="Scenario Night",
-    )
+    sync_name.assert_called_once()
 
 
 async def test_scenario_button_press_routes_to_webserver(hass: HomeAssistant) -> None:

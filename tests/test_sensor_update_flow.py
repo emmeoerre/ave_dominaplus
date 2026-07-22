@@ -108,11 +108,15 @@ def test_new_offset_uses_generated_name_when_names_disabled(
 
     unique_id = set_sensor_uid(server, AVE_FAMILY_THERMOSTAT, 9)
     created = server.numbers[unique_id]
-    assert created.name == "Thermostat Offset 9"
+    assert created._attr_translation_key == "thermostat_offset"
+    assert created._attr_device_info.get("translation_key") == "thermostat"
+    assert created._attr_device_info.get("translation_placeholders") == {"id": "9"}
 
 
-def test_thermostat_offset_set_ave_name_appends_suffix(hass: HomeAssistant) -> None:
-    """Setting AVE name should append offset suffix for source tracking."""
+def test_thermostat_offset_set_ave_name_updates_source_device(
+    hass: HomeAssistant,
+) -> None:
+    """Setting AVE name should update source metadata and thermostat device naming."""
     server = _new_server(hass)
     sensor = ThermostatOffset("uid", AVE_FAMILY_THERMOSTAT, 5, server, value=0.2)
     sensor.async_write_ha_state = Mock()
@@ -120,7 +124,11 @@ def test_thermostat_offset_set_ave_name_appends_suffix(hass: HomeAssistant) -> N
 
     sensor.set_ave_name("Kitchen")
 
-    assert sensor.extra_state_attributes["AVE_source_name"] == "Kitchen offset"
+    assert sensor.extra_state_attributes["AVE_source_name"] == "Kitchen"
+    assert sensor._attr_device_info.get("translation_key") == "thermostat_named"
+    assert sensor._attr_device_info.get("translation_placeholders") == {
+        "name": "Kitchen"
+    }
 
 
 async def test_offset_sensor_lifecycle_registers_and_unregisters_availability(
