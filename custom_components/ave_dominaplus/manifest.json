@@ -7,7 +7,7 @@
   "integration_type": "hub",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/emmeoerre/ave_dominaplus/issues",
-  "version": "1.5.4",
+  "version": "1.6.0",
   "zeroconf": [
     {
       "type": "_udisks-ssh._tcp.local.",
