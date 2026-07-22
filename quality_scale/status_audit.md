@@ -287,9 +287,9 @@ Evidence: internal client and integration paths are async and aiohttp-based.
 Action: keep all I/O async-only.
 
 2. inject-websession
-Status: Missing
-Evidence: AveWebServer creates ad-hoc aiohttp.ClientSession instances instead of receiving HA session.
-Action: inject and reuse async_get_clientsession(hass) or async_create_clientsession where isolation is required.
+Status: Covered
+Evidence: setup and config flows inject Home Assistant's shared session into AveWebServer; HTTP and WebSocket traffic reuse it, and disconnect closes only the WebSocket connection.
+Action: preserve Home Assistant's ownership of the shared session and never close it from the integration.
 
 3. strict-typing
 Status: Missing

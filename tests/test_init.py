@@ -33,10 +33,15 @@ async def test_async_setup_entry_success(
     mock_webserver.authenticate.return_value = True
     mock_webserver.disconnect = AsyncMock()
     mock_webserver.start = AsyncMock()
+    session = Mock()
 
     with (
         patch(
             "custom_components.ave_dominaplus.AveWebServer", return_value=mock_webserver
+        ) as webserver_class,
+        patch(
+            "custom_components.ave_dominaplus.async_get_clientsession",
+            return_value=session,
         ),
         patch.object(
             hass.config_entries,
@@ -53,6 +58,7 @@ async def test_async_setup_entry_success(
         await hass.async_block_till_done()
 
     assert result is True
+    webserver_class.assert_called_once_with(mock_config_entry.data, hass, session)
     assert mock_config_entry.runtime_data is mock_webserver
     forward_setups.assert_awaited_once()
     mock_webserver.authenticate.assert_awaited_once()

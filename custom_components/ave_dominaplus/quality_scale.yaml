@@ -74,5 +74,5 @@ rules:
   async-dependency:
     status: exempt
     comment: The integration has no external client dependency and all device I/O is asynchronous.
-  inject-websession: todo
+  inject-websession: done
   strict-typing: todo

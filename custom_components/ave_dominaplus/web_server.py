@@ -30,6 +30,7 @@ class AveWebServer:
         self,
         settings_data: MappingProxyType[str, Any],
         hass: HomeAssistant,
+        session: aiohttp.ClientSession,
     ) -> None:
         """Initialize."""
         self.settings = AveWebServerSettings()
@@ -44,7 +45,7 @@ class AveWebServer:
         self.config_entry_unique_id: str | None = None
         self.systeminfo: dict[str, str] = {}
         self.hass = hass
-        self._ws_session: aiohttp.ClientSession | None = None
+        self._session = session
         self.ws_conn: Any = None
         self._connected = False
         self._has_connected_once = False
@@ -237,10 +238,7 @@ class AveWebServer:
     async def authenticate(self) -> bool:
         """Authenticate with the WebSocket server."""
         try:
-            if self._ws_session is None or self._ws_session.closed:
-                self._ws_session = aiohttp.ClientSession()
-
-            self.ws_conn = await self._ws_session.ws_connect(
+            self.ws_conn = await self._session.ws_connect(
                 f"ws://{self.settings.host}:14001",
                 protocols=["binary"],
                 heartbeat=15,
@@ -255,10 +253,6 @@ class AveWebServer:
                 with suppress(Exception):
                     await self.ws_conn.close()
                 self.ws_conn = None
-            if self._ws_session and not self._ws_session.closed:
-                with suppress(Exception):
-                    await self._ws_session.close()
-            self._ws_session = None
             _LOGGER.debug(
                 "Failed to connect to WebSocket server at %s: %s",
                 self.settings.host,
@@ -271,10 +265,6 @@ class AveWebServer:
                 with suppress(Exception):
                     await self.ws_conn.close()
                 self.ws_conn = None
-            if self._ws_session and not self._ws_session.closed:
-                with suppress(Exception):
-                    await self._ws_session.close()
-            self._ws_session = None
             _LOGGER.exception("Unexpected error while connecting to WebSocket server")
             return False
         return True
@@ -292,9 +282,6 @@ class AveWebServer:
             await self.ws_conn.close()
             self.ws_conn = None
             _LOGGER.info("WebSocket disconnected!", extra={"host": self.settings.host})
-        if self._ws_session and not self._ws_session.closed:
-            await self._ws_session.close()
-        self._ws_session = None
         self._set_connected(False, log_transition=False)
 
     async def start(self) -> None:
@@ -466,93 +453,88 @@ class AveWebServer:
 
     async def call_bridge(self, command: str) -> tuple[int, str | None]:
         """Call a xml "rest" bridge for common commands."""
-        async with aiohttp.ClientSession() as session:
-            try:
-                url = f"http://{self.settings.host}/bridge.php"
-                params = {"command": command}
-                async with session.get(url, params=params) as response:
-                    if response.status == 200:
-                        data = await response.text()
-                        _LOGGER.debug("Bridge response: %s", data)
-                        return response.status, data
-                    _LOGGER.error("Failed to call bridge. Status: %s", response.status)
-                    return response.status, None
-            except Exception:
-                _LOGGER.exception("Error calling bridge")
-                return 900, None
+        try:
+            url = f"http://{self.settings.host}/bridge.php"
+            params = {"command": command}
+            async with self._session.get(url, params=params) as response:
+                if response.status == 200:
+                    data = await response.text()
+                    _LOGGER.debug("Bridge response: %s", data)
+                    return response.status, data
+                _LOGGER.error("Failed to call bridge. Status: %s", response.status)
+                return response.status, None
+        except Exception:
+            _LOGGER.exception("Error calling bridge")
+            return 900, None
 
     async def tryget_mac_address(self) -> str | None:
         """Try to get the MAC address of the webserver."""
-        async with aiohttp.ClientSession() as session:
-            try:
-                url = f"http://{self.settings.host}/revealcode.php"
-                async with session.get(url) as response:
-                    if response.status == 200:
-                        data = await response.text()
-                        # _LOGGER.debug("revealcode response: %s", data)
+        try:
+            url = f"http://{self.settings.host}/revealcode.php"
+            async with self._session.get(url) as response:
+                if response.status == 200:
+                    data = await response.text()
+                    # _LOGGER.debug("revealcode response: %s", data)
 
-                        try:
-                            root = DefusedET.fromstring(data)
-                            xml_mac = root.findtext("macaddress")
-                            if xml_mac:
-                                return xml_mac.strip().lower()
-                        except DefusedET.ParseError:
-                            _LOGGER.exception("Invalid XML in revealcode response")
-                        _LOGGER.warning(
-                            "No macaddress tag found in revealcode response"
-                        )
-                        return None
-                    _LOGGER.error(
-                        "Failed to get WebServer MAC address. Status: %s",
-                        response.status,
-                    )
+                    try:
+                        root = DefusedET.fromstring(data)
+                        xml_mac = root.findtext("macaddress")
+                        if xml_mac:
+                            return xml_mac.strip().lower()
+                    except DefusedET.ParseError:
+                        _LOGGER.exception("Invalid XML in revealcode response")
+                    _LOGGER.warning("No macaddress tag found in revealcode response")
                     return None
-            except Exception:
-                _LOGGER.exception("Error getting WebServer MAC ADDRESS")
+                _LOGGER.error(
+                    "Failed to get WebServer MAC address. Status: %s",
+                    response.status,
+                )
                 return None
+        except Exception:
+            _LOGGER.exception("Error getting WebServer MAC ADDRESS")
+            return None
 
     async def tryget_systeminfo(self) -> dict[str, str]:
         """Try to get selected system information from the webserver."""
-        async with aiohttp.ClientSession() as session:
-            try:
-                url = f"http://{self.settings.host}/systeminfo.php"
-                async with session.get(url) as response:
-                    if response.status != 200:
-                        _LOGGER.error(
-                            "Failed to get WebServer system info. Status: %s",
-                            response.status,
-                        )
-                        return {}
+        try:
+            url = f"http://{self.settings.host}/systeminfo.php"
+            async with self._session.get(url) as response:
+                if response.status != 200:
+                    _LOGGER.error(
+                        "Failed to get WebServer system info. Status: %s",
+                        response.status,
+                    )
+                    return {}
 
-                    data = await response.text()
-                    try:
-                        root = DefusedET.fromstring(data)
-                    except DefusedET.ParseError:
-                        _LOGGER.exception("Invalid XML in systeminfo response")
-                        return {}
+                data = await response.text()
+                try:
+                    root = DefusedET.fromstring(data)
+                except DefusedET.ParseError:
+                    _LOGGER.exception("Invalid XML in systeminfo response")
+                    return {}
 
-                    keys = [
-                        "remotesupport",
-                        "os",
-                        "app",
-                        "launcher",
-                        "DPServer",
-                        "DPClient",
-                        "firmware",
-                        "cloud",
-                        "iot",
-                    ]
+                keys = [
+                    "remotesupport",
+                    "os",
+                    "app",
+                    "launcher",
+                    "DPServer",
+                    "DPClient",
+                    "firmware",
+                    "cloud",
+                    "iot",
+                ]
 
-                    systeminfo: dict[str, str] = {}
-                    for key in keys:
-                        element = root.find(key)
-                        if element is not None and element.text is not None:
-                            systeminfo[key] = element.text.strip()
+                systeminfo: dict[str, str] = {}
+                for key in keys:
+                    element = root.find(key)
+                    if element is not None and element.text is not None:
+                        systeminfo[key] = element.text.strip()
 
-                    return systeminfo
-            except Exception:
-                _LOGGER.exception("Error getting WebServer system info")
-                return {}
+                return systeminfo
+        except Exception:
+            _LOGGER.exception("Error getting WebServer system info")
+            return {}
 
     async def get_device_list_bridge(self) -> tuple[int, str | None]:
         """Get the device list from the bridge."""

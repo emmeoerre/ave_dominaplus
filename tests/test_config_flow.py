@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ipaddress import ip_address
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -804,6 +804,31 @@ async def test_validate_input_returns_with_empty_mac_when_not_required(
         result = await flow.validate_input(MOCK_USER_INPUT, require_mac_address=False)
 
     assert result == {"title": "AVE webserver ", "mac_address": ""}
+
+
+async def test_validate_input_injects_home_assistant_session(
+    hass: HomeAssistant,
+) -> None:
+    """Test validation passes Home Assistant's shared session to the client."""
+    flow = _new_flow(hass)
+    session = Mock()
+    mock_webserver = AsyncMock()
+    mock_webserver.get_device_list_bridge = AsyncMock(return_value=(200, "ok"))
+
+    with (
+        patch(
+            "custom_components.ave_dominaplus.config_flow.async_get_clientsession",
+            return_value=session,
+        ),
+        patch(
+            "custom_components.ave_dominaplus.config_flow.AveWebServer",
+            return_value=mock_webserver,
+        ) as webserver_class,
+        patch.object(flow, "_configure_unique_id", new=AsyncMock(return_value="")),
+    ):
+        await flow.validate_input(MOCK_USER_INPUT)
+
+    assert webserver_class.call_args.kwargs["session"] is session
 
 
 async def test_configure_unique_id_returns_empty_when_mac_missing(
