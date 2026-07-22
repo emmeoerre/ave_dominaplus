@@ -35,7 +35,7 @@ def _new_server(hass: HomeAssistant, **overrides) -> AveWebServer:
         "on_off_lights_as_switch": True,
     }
     settings.update(overrides)
-    server = AveWebServer(settings, hass)
+    server = AveWebServer(settings, hass, object())
     server.mac_address = "aa:bb:cc:dd:ee:ff"
     server.async_add_bs_entities = Mock()
     server.register_availability_entity = Mock()
@@ -52,7 +52,8 @@ def test_update_binary_sensor_creates_motion_sensor(hass: HomeAssistant) -> None
     unique_id = set_sensor_uid(AVE_FAMILY_MOTION_SENSOR, 8)
     assert unique_id in server.binary_sensors
     created = server.binary_sensors[unique_id]
-    assert created.name == "Antitheft Sensor 8"
+    assert created._attr_translation_key == "antitheft_sensor"
+    assert created._attr_translation_placeholders == {"id": "8"}
     server.async_add_bs_entities.assert_called_once()
 
 
@@ -80,7 +81,8 @@ def test_update_binary_sensor_creates_scenario_running_sensor(
     unique_id = set_sensor_uid(AVE_FAMILY_SCENARIO, 12, server)
     created = server.binary_sensors[unique_id]
     assert isinstance(created, ScenarioRunningBinarySensor)
-    assert created.name == "Morning Running"
+    assert created._attr_translation_key == "scenario_running"
+    assert created._ave_name == "Morning"
     assert created.is_on is True
 
 
@@ -130,17 +132,13 @@ def test_update_binary_sensor_existing_respects_manual_rename(
     sensor.set_ave_name = Mock()
     server.binary_sensors[unique_id] = sensor
 
-    with patch(
-        "custom_components.ave_dominaplus.binary_sensor.check_name_changed",
-        return_value=True,
-    ):
-        update_binary_sensor(
-            server,
-            AVE_FAMILY_ANTITHEFT_AREA,
-            4,
-            1,
-            name="AVE Area",
-        )
+    update_binary_sensor(
+        server,
+        AVE_FAMILY_ANTITHEFT_AREA,
+        4,
+        1,
+        name="AVE Area",
+    )
 
     sensor.update_state.assert_called_once_with(1)
     sensor.set_ave_name.assert_called_once_with("AVE Area")
@@ -167,17 +165,13 @@ def test_update_scenario_binary_sensor_existing_respects_manual_rename(
     sensor.set_ave_name = Mock()
     server.binary_sensors[unique_id] = sensor
 
-    with patch(
-        "custom_components.ave_dominaplus.binary_sensor.check_name_changed",
-        return_value=True,
-    ):
-        update_binary_sensor(
-            server,
-            AVE_FAMILY_SCENARIO,
-            14,
-            1,
-            name="Evening",
-        )
+    update_binary_sensor(
+        server,
+        AVE_FAMILY_SCENARIO,
+        14,
+        1,
+        name="Evening",
+    )
 
     sensor.update_state.assert_called_once_with(1)
     sensor.set_ave_name.assert_called_once_with("Evening")
@@ -195,12 +189,16 @@ def test_update_scenario_binary_sensor_refreshes_device_info_name(
     sensor = server.binary_sensors[unique_id]
     sensor.entity_id = "binary_sensor.scenario_29_running"
     sensor.async_write_ha_state = Mock()
-    assert sensor._attr_device_info.get("name") == "Scenario 29"
+    assert sensor._attr_device_info.get("translation_key") == "scenario"
+    assert sensor._attr_device_info.get("translation_placeholders") == {"id": "29"}
 
     update_binary_sensor(server, AVE_FAMILY_SCENARIO, 29, 1, name="Wake Up")
 
-    assert sensor.name == "Wake Up Running"
-    assert sensor._attr_device_info.get("name") == "Scenario Wake Up"
+    assert sensor._attr_translation_key == "scenario_running"
+    assert sensor._attr_device_info.get("translation_key") == "scenario_named"
+    assert sensor._attr_device_info.get("translation_placeholders") == {
+        "name": "Wake Up"
+    }
 
 
 def test_scenario_running_sync_device_name_respects_name_by_user(
@@ -219,21 +217,13 @@ def test_scenario_running_sync_device_name_respects_name_by_user(
     sensor.entity_id = "binary_sensor.uid"
     sensor.async_write_ha_state = Mock()
 
-    device_registry = Mock()
-    device_registry.async_get_device.return_value = SimpleNamespace(
-        id="dev-3",
-        name_by_user="Custom",
-        name="Old",
-    )
-
     with patch(
-        "custom_components.ave_dominaplus.binary_sensor.dr.async_get",
-        return_value=device_registry,
-    ):
+        "custom_components.ave_dominaplus.binary_sensor.sync_device_registry_name"
+    ) as sync_name:
         sensor.set_ave_name("Relax")
 
-    assert sensor._attr_device_info.get("name") == "Scenario Relax"
-    device_registry.async_update_device.assert_not_called()
+    assert sensor._attr_device_info.get("translation_key") == "scenario_named"
+    sync_name.assert_called_once()
 
 
 def test_scenario_running_sync_device_name_updates_when_not_customized(
@@ -252,23 +242,12 @@ def test_scenario_running_sync_device_name_updates_when_not_customized(
     sensor.entity_id = "binary_sensor.uid"
     sensor.async_write_ha_state = Mock()
 
-    device_registry = Mock()
-    device_registry.async_get_device.return_value = SimpleNamespace(
-        id="dev-4",
-        name_by_user=None,
-        name="Scenario 32",
-    )
-
     with patch(
-        "custom_components.ave_dominaplus.binary_sensor.dr.async_get",
-        return_value=device_registry,
-    ):
+        "custom_components.ave_dominaplus.binary_sensor.sync_device_registry_name"
+    ) as sync_name:
         sensor.set_ave_name("Party")
 
-    device_registry.async_update_device.assert_called_once_with(
-        device_id="dev-4",
-        name="Scenario Party",
-    )
+    sync_name.assert_called_once()
 
 
 def test_motion_sensor_update_state_tracks_timestamps(hass: HomeAssistant) -> None:

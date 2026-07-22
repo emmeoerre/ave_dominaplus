@@ -12,6 +12,7 @@ from homeassistant import data_entry_flow
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.const import CONF_IP_ADDRESS
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.device_registry import format_mac
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
@@ -115,11 +116,17 @@ class AveWsConfigFlow(ConfigFlow, domain=DOMAIN):
             discovery_info.host,
             [str(ip_addr) for ip_addr in discovery_info.ip_addresses],
         )
-        discovered_host = discovery_info.host
-        for ip_addr in discovery_info.ip_addresses:
-            if ip_addr.version == 4:
-                discovered_host = str(ip_addr)
-                break
+        discovered_host = next(
+            (
+                str(ip_addr)
+                for ip_addr in discovery_info.ip_addresses
+                if ip_addr.version == 4
+            ),
+            None,
+        )
+        if discovered_host is None:
+            _LOGGER.debug("Ignoring AVE Zeroconf discovery without an IPv4 address")
+            return self.async_abort(reason="ipv4_required")
 
         user_input = {
             CONF_IP_ADDRESS: discovered_host,
@@ -238,7 +245,9 @@ class AveWsConfigFlow(ConfigFlow, domain=DOMAIN):
                 continue
 
             webserver = AveWebServer(
-                settings_data=MappingProxyType(entry_data), hass=self.hass
+                settings_data=MappingProxyType(entry_data),
+                hass=self.hass,
+                session=async_get_clientsession(self.hass),
             )
             legacy_mac = await webserver.tryget_mac_address()
 
@@ -296,7 +305,11 @@ class AveWsConfigFlow(ConfigFlow, domain=DOMAIN):
         Data has the keys from STEP_USER_DATA_SCHEMA
         with values provided by the user.
         """
-        webserver = AveWebServer(settings_data=MappingProxyType(data), hass=self.hass)
+        webserver = AveWebServer(
+            settings_data=MappingProxyType(data),
+            hass=self.hass,
+            session=async_get_clientsession(self.hass),
+        )
         resp_code, _resp_content = await webserver.get_device_list_bridge()
         if resp_code == 900:
             raise CannotConnect

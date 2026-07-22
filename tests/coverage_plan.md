@@ -1,6 +1,9 @@
-# AVE Dominaplus Test Coverage Plan
+# AVE Dominaplus Test Coverage Plan (Completed)
 
-Date: 2026-04-14
+Created: 2026-04-14
+Last verified: 2026-07-20
+
+Status: completed. The plan below is retained as a historical record of the coverage effort.
 
 ## Goal
 
@@ -9,11 +12,12 @@ Build tests in two phases:
 1. Phase 1: cover critical, functional, user-impacting behavior.
 2. Phase 2: expand to 95%+ total coverage for integration modules.
 
-Current baseline (from `pytest --cov=custom_components/ave_dominaplus --cov-report=term-missing`):
+Current result (from `pytest --cov=custom_components/ave_dominaplus --cov-report=term-missing`):
 
-- Total coverage: 19%
-- Already strong: `config_flow.py` (100%), `__init__.py` (100%), `device_info.py` (95%)
-- High-risk uncovered areas: `web_server.py`, `climate.py`, `light.py`, `cover.py`, `switch.py`, `binary_sensor.py`, `sensor.py`, `diagnostics.py`, `uid_v2.py`
+- Tests: 351 passed
+- Total coverage: 99%
+- Config flow coverage: 100%
+- Lowest individual module: `uid_v2.py` at 93%
 
 ## Working Rules For This Effort
 

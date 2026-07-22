@@ -18,7 +18,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import PRECISION_TENTHS, UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
-from homeassistant.helpers import device_registry as dr, entity_registry as er
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import ws_commands
@@ -83,11 +83,9 @@ async def adopt_existing_sensors(server: AveWebServer, entry: ConfigEntry) -> No
                 # Create a new sensor instance
                 family = int(entity.unique_id.split("_")[3])
                 ave_device_id = int(entity.unique_id.split("_")[4])
-                name = None
-                if entity.name is not None:
-                    name = entity.name
-                elif entity.original_name is not None:
-                    name = entity.original_name
+                ave_name = (
+                    entity.original_name if server.settings.get_entity_names else None
+                )
                 properties = AveThermostatProperties()
                 properties.device_id = ave_device_id
                 thermostat = AveThermostat(
@@ -95,7 +93,7 @@ async def adopt_existing_sensors(server: AveWebServer, entry: ConfigEntry) -> No
                     family=family,
                     ave_properties=properties,
                     webserver=server,
-                    name=name,
+                    name=ave_name,
                 )
 
                 thermostat.hass = server.hass
@@ -285,8 +283,6 @@ def _update_thermostat(
             thermostat.update_all_properties(properties)
             if properties.device_name is not None and server.settings.get_entity_names:
                 thermostat.set_ave_name(properties.device_name)
-                if not check_name_changed(server.hass, unique_id):
-                    thermostat.set_name(properties.device_name)
         elif property_name is not None and property_value is not None:
             thermostat.update_specific_property(property_name, property_value)
         if address_dec is not None:
@@ -300,7 +296,7 @@ def _update_thermostat(
             )
             return
         # Create a new thermostat entity
-        entity_name = None
+        ave_name = None
         if server.settings.get_entity_names:
             if properties.device_name is None:
                 _LOGGER.debug(
@@ -308,39 +304,22 @@ def _update_thermostat(
                     ave_device_id,
                 )
                 return
-            entity_name = properties.device_name
+            ave_name = properties.device_name
 
         thermostat = AveThermostat(
             unique_id=unique_id,
             family=family,
             ave_properties=properties,
             webserver=server,
-            name=entity_name,
+            name=ave_name,
             address_dec=address_dec,
         )
 
-        _LOGGER.info("Creating new thermostat entity %s", entity_name)
+        _LOGGER.info("Creating new thermostat entity %s", ave_name)
         server.thermostats[unique_id] = thermostat
         server.async_add_th_entities(
             [thermostat]
         )  # Add the new sensor to Home Assistant
-
-
-def check_name_changed(hass: HomeAssistant, unique_id: str) -> bool:
-    """Check if the name of the sensor has changed."""
-    entity_registry = er.async_get(hass)
-
-    entry_id = entity_registry.async_get_entity_id(
-        "climate", "ave_dominaplus", unique_id
-    )
-    if entry_id:
-        entity_entry = entity_registry.async_get(entry_id)
-        if entity_entry is not None:
-            return (
-                entity_entry.name is not None
-                and entity_entry.original_name != entity_entry.name
-            )
-    return False
 
 
 class AveThermostat(ClimateEntity):
@@ -364,7 +343,6 @@ class AveThermostat(ClimateEntity):
     _attr_preset_modes = [PRESET_MANUAL, PRESET_SCHEDULE]
     _attr_target_temperature_step = PRECISION_TENTHS
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
-    _attr_translation_key = "thermostat"
     _attr_name = None
     _away: bool | None = None
     _connected: bool | None = None
@@ -384,22 +362,14 @@ class AveThermostat(ClimateEntity):
         self.family = family
         self._webserver = webserver
         self.hass = self._webserver.hass
-        thermostat_name = name or ave_properties.device_name
         self._attr_device_info = build_endpoint_device_info(
             webserver,
             family,
             ave_properties.device_id,
-            ave_name=thermostat_name,
+            ave_name=name,
         )
         self.ave_properties: AveThermostatProperties = ave_properties
-        self.ave_name = ""
-        if name is not None:
-            self._name = name
-        elif ave_properties.device_name is None:
-            self._name = self.build_name()
-        else:
-            self._name = ave_properties.device_name
-            self.ave_name = ave_properties.device_name
+        self.ave_name = name or ""
 
         self._address_dec = address_dec
 
@@ -633,11 +603,6 @@ class AveThermostat(ClimateEntity):
         return self._unique_id
 
     @property
-    def name(self) -> str:
-        """Return the name of the sensor."""
-        return self._name
-
-    @property
     def available(self) -> bool:
         """Return if the backing webserver connection is available."""
         return self._webserver.connected
@@ -668,14 +633,9 @@ class AveThermostat(ClimateEntity):
         """Set the AVE name of the sensor."""
         if name is not None:
             self.ave_name = name
-
-    def set_name(self, name: str | None) -> None:
-        """Set the name of the sensor."""
-        if name is None:
-            return
-        self._name = name
-        self._sync_device_name(name)
-        self.async_write_ha_state()
+            self._sync_device_name(name)
+            if self.hass is not None and self.entity_id is not None:
+                self.async_write_ha_state()
 
     def _sync_device_name(self, name: str) -> None:
         """Sync thermostat device name unless user customized it in HA."""
@@ -695,8 +655,8 @@ class AveThermostat(ClimateEntity):
         sync_device_registry_name(
             self.hass,
             updated_device_info,
+            config_entry_id=self._webserver.config_entry_id,
             identifiers=identifiers,
-            device_registry_getter=dr.async_get,
         )
 
         self._attr_device_info = updated_device_info
@@ -706,7 +666,3 @@ class AveThermostat(ClimateEntity):
         if address_dec is not None and self._address_dec != address_dec:
             self._address_dec = address_dec
             self.async_write_ha_state()
-
-    def build_name(self) -> str:
-        """Build the name of the sensor based on its family and device ID."""
-        return f"Thermostat {self.ave_properties.device_id}"

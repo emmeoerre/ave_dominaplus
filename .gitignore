@@ -176,6 +176,7 @@ cython_debug/
 
 #Home assistant core files not needed for custom compoknents
 quality_scale.yaml
+!custom_components/ave_dominaplus/quality_scale.yaml
 
 
 # artifacts

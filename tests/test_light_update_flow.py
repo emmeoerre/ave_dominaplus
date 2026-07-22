@@ -28,7 +28,7 @@ def _new_server(hass: HomeAssistant, **overrides) -> AveWebServer:
         "on_off_lights_as_switch": True,
     }
     settings.update(overrides)
-    server = AveWebServer(settings, hass)
+    server = AveWebServer(settings, hass, object())
     server.mac_address = "aa:bb:cc:dd:ee:ff"
     server.async_add_lg_entities = Mock()
     server.register_availability_entity = Mock()
@@ -55,7 +55,9 @@ def test_update_light_creates_entity_when_address_available(
     assert unique_id in server.lights
     server.async_add_lg_entities.assert_called_once()
     created = server.lights[unique_id]
-    assert created.name == "Kitchen"
+    assert created.name is None
+    assert created._ave_name == "Kitchen"
+    assert created._attr_device_info.get("name") == "Kitchen"
 
 
 def test_update_light_does_not_create_without_address(hass: HomeAssistant) -> None:
@@ -95,24 +97,19 @@ def test_update_light_existing_entity_uses_override_protection(
     light.handle_webserver_update = Mock()
     server.lights[unique_id] = light
 
-    with patch(
-        "custom_components.ave_dominaplus.light.check_name_changed",
-        return_value=True,
-    ):
-        update_light(
-            server,
-            AVE_FAMILY_DIMMER,
-            ave_device_id=5,
-            device_status=22,
-            name="Renamed at AVE",
-            address_dec=16,
-        )
+    update_light(
+        server,
+        AVE_FAMILY_DIMMER,
+        ave_device_id=5,
+        device_status=22,
+        name="Renamed at AVE",
+        address_dec=16,
+    )
 
     light.handle_webserver_update.assert_called_once_with(
         device_status=22,
         name="Renamed at AVE",
         address_dec=16,
-        allow_name_update=False,
     )
 
 
@@ -124,24 +121,19 @@ def test_update_light_existing_entity_allows_name_update(hass: HomeAssistant) ->
     light.handle_webserver_update = Mock()
     server.lights[unique_id] = light
 
-    with patch(
-        "custom_components.ave_dominaplus.light.check_name_changed",
-        return_value=False,
-    ):
-        update_light(
-            server,
-            AVE_FAMILY_DIMMER,
-            ave_device_id=5,
-            device_status=22,
-            name="Renamed at AVE",
-            address_dec=16,
-        )
+    update_light(
+        server,
+        AVE_FAMILY_DIMMER,
+        ave_device_id=5,
+        device_status=22,
+        name="Renamed at AVE",
+        address_dec=16,
+    )
 
     light.handle_webserver_update.assert_called_once_with(
         device_status=22,
         name="Renamed at AVE",
         address_dec=16,
-        allow_name_update=True,
     )
 
 
@@ -166,7 +158,6 @@ def test_update_light_finds_existing_without_address(hass: HomeAssistant) -> Non
         device_status=31,
         name=None,
         address_dec=None,
-        allow_name_update=False,
     )
 
 
@@ -187,7 +178,9 @@ def test_update_light_uses_default_name_when_entity_names_disabled(
 
     unique_id = build_uid(server.mac_address, AVE_FAMILY_DIMMER, 4, 12)
     created = server.lights[unique_id]
-    assert created.name == "Dimmer 4"
+    assert created.name is None
+    assert created._attr_device_info.get("translation_key") == "dimmer"
+    assert created._attr_device_info.get("translation_placeholders") == {"id": "4"}
 
 
 def test_light_set_ave_name_updates_device_info_name(hass: HomeAssistant) -> None:
@@ -199,12 +192,13 @@ def test_light_set_ave_name_updates_device_info_name(hass: HomeAssistant) -> Non
         12,
         0,
         server,
-        name="Light 12",
+        ave_name=None,
     )
     light.entity_id = "light.uid"
     light.async_write_ha_state = Mock()
 
-    assert light._attr_device_info.get("name") == "Light 12"
+    assert light._attr_device_info.get("name") is None
+    assert light._attr_device_info.get("translation_key") == "light"
 
     light.set_ave_name("Kitchen")
 

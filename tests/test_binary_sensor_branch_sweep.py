@@ -13,7 +13,6 @@ from custom_components.ave_dominaplus.binary_sensor import (
     _parse_motion_uid,
     adopt_existing_sensors,
     async_setup_entry,
-    check_name_changed,
     set_sensor_uid,
     update_binary_sensor,
 )
@@ -150,7 +149,10 @@ async def test_adopt_existing_sensors_filters_disabled_and_adopts_valid_motion(
 
     expected_uid = f"ave_motion_{AVE_FAMILY_MOTION_SENSOR}_9"
     assert expected_uid in server.binary_sensors
-    assert server.binary_sensors[expected_uid].name == "Hall Motion"
+    adopted = server.binary_sensors[expected_uid]
+    assert adopted._attr_translation_key == "antitheft_sensor"
+    assert adopted._attr_translation_placeholders == {"id": "9"}
+    assert adopted._ave_name is None
     server.async_add_bs_entities.assert_called_once()
 
 
@@ -212,26 +214,6 @@ async def test_adopt_existing_sensors_handles_parse_uid_exception(hass) -> None:
         await adopt_existing_sensors(server, _entry(server))
 
 
-def test_check_name_changed_true_and_false_branches(hass) -> None:
-    """Name-change helper should detect override and missing entry paths."""
-    registry = Mock()
-    registry.async_get_entity_id.return_value = "binary_sensor.test"
-    registry.async_get.return_value = SimpleNamespace(name="New", original_name="Old")
-
-    with patch(
-        "custom_components.ave_dominaplus.binary_sensor.er.async_get",
-        return_value=registry,
-    ):
-        assert check_name_changed(hass, "uid") is True
-
-    registry.async_get_entity_id.return_value = None
-    with patch(
-        "custom_components.ave_dominaplus.binary_sensor.er.async_get",
-        return_value=registry,
-    ):
-        assert check_name_changed(hass, "uid") is False
-
-
 @pytest.mark.asyncio
 async def test_motion_sensor_lifecycle_and_property_branches(hass) -> None:
     """Motion entity should cover lifecycle hooks and property guard branches."""
@@ -265,7 +247,8 @@ async def test_motion_sensor_lifecycle_and_property_branches(hass) -> None:
     )
     area.async_write_ha_state = Mock()
     assert area.extra_state_attributes["AVE_name"] == "Area A"
-    assert area.build_name() == "Antitheft Area 2"
+    assert area._attr_translation_key == "antitheft_area"
+    assert area._attr_translation_placeholders == {"id": "2"}
 
     with (
         patch(
@@ -287,13 +270,12 @@ async def test_motion_sensor_lifecycle_and_property_branches(hass) -> None:
     ):
         motion.update_state(1)
 
-    # set_name None path and set_ave_name write path.
-    motion.set_name(None)
+    # Exercise AVE metadata write paths.
     motion.set_ave_name("Motion")
 
-    # set_name write guarded by hass truthiness.
+    # State writes remain guarded by hass truthiness.
     motion.hass = None
-    motion.set_name("NoWrite")
+    motion.set_ave_name("NoWrite")
 
 
 def test_set_sensor_uid_and_parse_motion_uid_guard_branches(hass) -> None:
@@ -397,7 +379,8 @@ async def test_adopt_existing_sensors_filters_scenario_and_motion_paths(hass) ->
     assert len(server.binary_sensors) == 1
     adopted = next(iter(server.binary_sensors.values()))
     assert isinstance(adopted, ScenarioRunningBinarySensor)
-    assert adopted.name == "Movie"
+    assert adopted._attr_translation_key == "scenario_running"
+    assert adopted._ave_name == "Movie"
     server.async_add_bs_entities.assert_called_once_with([adopted])
 
 
@@ -433,20 +416,16 @@ def test_update_binary_sensor_existing_sets_names_when_not_user_renamed(hass) ->
     scenario.set_ave_name = Mock()
     server.binary_sensors[scenario_uid] = scenario
 
-    with patch(
-        "custom_components.ave_dominaplus.binary_sensor.check_name_changed",
-        return_value=False,
-    ):
-        update_binary_sensor(server, AVE_FAMILY_ANTITHEFT_AREA, 4, 1, name="Area 4")
-        update_binary_sensor(server, AVE_FAMILY_SCENARIO, 9, 1, name="Evening")
+    update_binary_sensor(server, AVE_FAMILY_ANTITHEFT_AREA, 4, 1, name="Area 4")
+    update_binary_sensor(server, AVE_FAMILY_SCENARIO, 9, 1, name="Evening")
 
     area.update_state.assert_called_once_with(1)
     area.set_ave_name.assert_called_once_with("Area 4")
-    area.set_name.assert_called_once_with("Area 4")
+    area.set_name.assert_not_called()
 
     scenario.update_state.assert_called_once_with(1)
     scenario.set_ave_name.assert_called_once_with("Evening")
-    scenario.set_name.assert_called_once_with("Evening Running")
+    scenario.set_name.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -467,13 +446,13 @@ async def test_scenario_running_sensor_lifecycle_and_state_branches(hass) -> Non
     )
     sensor.async_write_ha_state = Mock()
 
-    assert sensor.name == "Scenario 12 Running"
+    assert sensor._attr_translation_key == "scenario_running"
     assert sensor.unique_id == "uid-scenario"
     assert sensor.available is True
     assert sensor.is_on is False
     assert sensor.device_class == BinarySensorDeviceClass.RUNNING
     assert sensor.extra_state_attributes["AVE_name"] == "Morning"
-    assert sensor.build_name() == "Scenario 12 Running"
+    assert sensor._attr_device_info.get("translation_key") == "scenario_named"
 
     with (
         patch(
@@ -514,19 +493,17 @@ async def test_scenario_running_sensor_lifecycle_and_state_branches(hass) -> Non
         sensor.update_state(1)
 
     writes_before = sensor.async_write_ha_state.call_count
-    sensor.set_name(None)
     sensor.set_ave_name("Updated")
-    sensor.set_name("Renamed")
-    assert sensor.async_write_ha_state.call_count == writes_before + 2
+    assert sensor.async_write_ha_state.call_count == writes_before + 1
 
     sensor.hass = None
     writes_before = sensor.async_write_ha_state.call_count
-    sensor.set_name("NoWrite")
+    sensor.set_ave_name(None)
     assert sensor.async_write_ha_state.call_count == writes_before
 
 
-def test_motion_sensor_is_on_false_and_set_name_writes_state(hass) -> None:
-    """Motion sensor should expose false state and write on name update when attached."""
+def test_motion_sensor_is_on_false_and_set_ave_name_writes_state(hass) -> None:
+    """Motion sensor should expose false state and write AVE metadata when attached."""
     server = make_server(hass)
     motion = MotionBinarySensor(
         unique_id="uid-motion-false",
@@ -539,6 +516,5 @@ def test_motion_sensor_is_on_false_and_set_name_writes_state(hass) -> None:
     motion.async_write_ha_state = Mock()
 
     assert motion.is_on is False
-    motion.set_name("Motion 6")
     motion.set_ave_name("Motion Name")
-    assert motion.async_write_ha_state.call_count == 2
+    assert motion.async_write_ha_state.call_count == 1

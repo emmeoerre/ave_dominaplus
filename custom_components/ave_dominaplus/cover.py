@@ -96,11 +96,9 @@ async def adopt_existing_covers(server: AveWebServer, entry: ConfigEntry) -> Non
             if family not in COVER_FAMILIES:
                 continue
 
-            name = None
-            if entity.name is not None:
-                name = entity.name
-            elif entity.original_name is not None:
-                name = entity.original_name
+            ave_name = (
+                entity.original_name if server.settings.get_entity_names else None
+            )
 
             cover = AveCover(
                 unique_id=entity.unique_id,
@@ -108,7 +106,8 @@ async def adopt_existing_covers(server: AveWebServer, entry: ConfigEntry) -> Non
                 ave_device_id=ave_device_id,
                 position=None,
                 webserver=server,
-                name=name,
+                name=None,
+                ave_name=ave_name,
                 address_dec=ave_address_dec,
             )
             cover.entity_id = entity.entity_id
@@ -167,11 +166,6 @@ def update_cover(
     already_exists = unique_id in server.covers if unique_id is not None else False
 
     if already_exists and unique_id is not None:
-        allow_name_update = (
-            name is not None
-            and server.settings.get_entity_names
-            and not check_name_changed(server.hass, unique_id)
-        )
         cover = server.covers.get(unique_id)
         if cover is None:
             return
@@ -181,7 +175,6 @@ def update_cover(
                 device_status=device_status,
                 name=name,
                 address_dec=address_dec,
-                allow_name_update=allow_name_update,
             )
         except Exception:
             _LOGGER.exception(
@@ -202,10 +195,8 @@ def update_cover(
                 server.mac_address, family, ave_device_id, address_dec
             )
 
-        entity_name = None
         entity_ave_name = None
         if name is not None and server.settings.get_entity_names:
-            entity_name = name
             entity_ave_name = name
 
         cover = AveCover(
@@ -214,7 +205,7 @@ def update_cover(
             ave_device_id=ave_device_id,
             position=device_status,
             webserver=server,
-            name=entity_name,
+            name=None,
             ave_name=entity_ave_name,
             address_dec=address_dec,
         )
@@ -224,25 +215,11 @@ def update_cover(
         server.async_add_cv_entities([cover])
 
 
-def check_name_changed(hass: HomeAssistant, unique_id: str) -> bool:
-    """Check if the name of the entity has changed in HA registry."""
-    entity_registry = er.async_get(hass)
-
-    entry_id = entity_registry.async_get_entity_id("cover", "ave_dominaplus", unique_id)
-    if entry_id:
-        entity_entry = entity_registry.async_get(entry_id)
-        if entity_entry is not None:
-            return (
-                entity_entry.name is not None
-                and entity_entry.original_name != entity_entry.name
-            )
-    return False
-
-
 class AveCover(CoverEntity):
     """Representation of an AVE cover."""
 
     _attr_has_entity_name = True
+    _attr_name = None
     _attr_should_poll = False
     _attr_supported_features = (
         CoverEntityFeature.OPEN | CoverEntityFeature.CLOSE | CoverEntityFeature.STOP
@@ -277,11 +254,6 @@ class AveCover(CoverEntity):
 
         self._attr_device_class = CoverDeviceClass.SHUTTER
 
-        if name is None:
-            self._name = self.build_name()
-        else:
-            self._name = name
-
         self._position = 3
         if position is not None:
             self.update_state(position)
@@ -307,7 +279,6 @@ class AveCover(CoverEntity):
         device_status: int,
         name: str | None = None,
         address_dec: int | None = None,
-        allow_name_update: bool = False,
     ) -> None:
         """Apply a websocket cover update in a single guarded path."""
         if device_status in (1, 2, 3, 4, 5):
@@ -315,8 +286,6 @@ class AveCover(CoverEntity):
 
         if name is not None and self._webserver.settings.get_entity_names:
             self.set_ave_name(name)
-            if allow_name_update:
-                self.set_name(name)
 
         if address_dec is not None:
             self.set_address_dec(address_dec)
@@ -349,11 +318,6 @@ class AveCover(CoverEntity):
     def unique_id(self) -> str:
         """Return the unique ID of the entity."""
         return self._unique_id
-
-    @property
-    def name(self) -> str:
-        """Return the name of the entity."""
-        return self._name
 
     @property
     def available(self) -> bool:
@@ -413,14 +377,6 @@ class AveCover(CoverEntity):
             self._position = value
             self._write_state_or_defer()
 
-    def set_name(self, name: str | None) -> None:
-        """Set the entity name."""
-        if name is None:
-            return
-        self._name = name
-        self._sync_device_info(name)
-        self._write_state_or_defer()
-
     def set_ave_name(self, name: str | None) -> None:
         """Set AVE native name."""
         if name is not None:
@@ -446,6 +402,7 @@ class AveCover(CoverEntity):
         sync_device_registry_name(
             self.hass,
             updated_device_info,
+            config_entry_id=self._webserver.config_entry_id,
             identifiers=identifiers,
         )
         self._attr_device_info = updated_device_info
@@ -462,15 +419,3 @@ class AveCover(CoverEntity):
             self._pending_state_write = True
             return
         self.async_write_ha_state()
-
-    def build_name(self) -> str:
-        """Build default entity name."""
-        if self.family == AVE_FAMILY_SHUTTER_ROLLING:
-            suffix = "Shutter"
-        elif self.family == AVE_FAMILY_SHUTTER_SLIDING:
-            suffix = "Blind"
-        elif self.family == AVE_FAMILY_SHUTTER_HUNG:
-            suffix = "Window"
-        else:
-            suffix = "Cover"
-        return f"{suffix} {self.ave_device_id}"
