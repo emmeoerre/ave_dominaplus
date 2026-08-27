@@ -200,4 +200,4 @@ config/*
 !config/configuration.yaml
 
 
-_src/*
+re/
