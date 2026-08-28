@@ -16,7 +16,6 @@ from custom_components.ave_dominaplus.light import (
     DimmerLight,
     adopt_existing_lights,
     async_setup_entry,
-    check_name_changed,
     update_light,
 )
 from homeassistant.exceptions import ConfigEntryNotReady
@@ -158,7 +157,8 @@ async def test_adopt_existing_lights_filters_and_adopts_original_name(hass) -> N
 
     assert "uid-ok" in server.lights
     assert isinstance(server.lights["uid-ok"], DimmerLight)
-    assert server.lights["uid-ok"].name == "Original Living"
+    assert server.lights["uid-ok"].name is None
+    assert server.lights["uid-ok"]._ave_name == "Original Living"
     server.async_add_lg_entities.assert_called_once()
 
 
@@ -246,24 +246,6 @@ def test_update_light_builds_uid_when_initial_lookup_returns_none(hass) -> None:
     server.async_add_lg_entities.assert_called_once()
 
 
-def test_check_name_changed_handles_name_override_and_missing_entry(hass) -> None:
-    """Name-change helper should detect renamed entities and missing entries."""
-    registry = Mock()
-    registry.async_get_entity_id.return_value = "light.test"
-    registry.async_get.return_value = SimpleNamespace(name="New", original_name="Old")
-
-    with patch(
-        "custom_components.ave_dominaplus.light.er.async_get", return_value=registry
-    ):
-        assert check_name_changed(hass, "uid") is True
-
-    registry.async_get_entity_id.return_value = None
-    with patch(
-        "custom_components.ave_dominaplus.light.er.async_get", return_value=registry
-    ):
-        assert check_name_changed(hass, "uid") is False
-
-
 @pytest.mark.asyncio
 async def test_entity_command_methods_cover_toggle_on_off_paths(hass) -> None:
     """Entity command methods should route by family and handle missing webserver."""
@@ -318,9 +300,7 @@ def test_entity_state_properties_and_mutators_cover_remaining_branches(hass) -> 
 
     light.update_state(None)
     light.update_state(-1)
-    light.set_name(None)
     light.entity_id = "light.kitchen"
-    light.set_name("Kitchen")
     light.set_ave_name("AVE Kitchen")
     light.set_address_dec(17)
     assert light.extra_state_attributes["AVE address_hex"] == "11"
@@ -340,7 +320,6 @@ def test_handle_webserver_update_applies_conditional_name_and_address(hass) -> N
     server = make_server(hass, get_entities_names=True)
     light = DimmerLight("uid", AVE_FAMILY_DIMMER, 6, 0, server, address_dec=10)
     light.update_state = Mock()
-    light.set_name = Mock()
     light.set_ave_name = Mock()
     light.set_address_dec = Mock()
 
@@ -348,10 +327,8 @@ def test_handle_webserver_update_applies_conditional_name_and_address(hass) -> N
         device_status=15,
         name="Bedroom",
         address_dec=11,
-        allow_name_update=True,
     )
 
     light.update_state.assert_called_once_with(15)
     light.set_ave_name.assert_called_once_with("Bedroom")
-    light.set_name.assert_called_once_with("Bedroom")
     light.set_address_dec.assert_called_once_with(11)

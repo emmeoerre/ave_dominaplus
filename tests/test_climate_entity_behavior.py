@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
 from custom_components.ave_dominaplus import ws_commands
@@ -37,7 +36,7 @@ def _new_server(hass: HomeAssistant) -> AveWebServer:
         "fetch_thermostats": True,
         "on_off_lights_as_switch": True,
     }
-    return AveWebServer(settings, hass)
+    return AveWebServer(settings, hass, object())
 
 
 def _props(
@@ -118,6 +117,25 @@ def test_update_specific_property_local_off_and_season(hass: HomeAssistant) -> N
     assert thermostat.hvac_mode == HVACMode.HEAT
 
     thermostat.update_specific_property("season", "0")
+    assert thermostat.hvac_mode == HVACMode.COOL
+
+
+def test_season_update_while_local_off_preserves_off_mode(
+    hass: HomeAssistant,
+) -> None:
+    """Season updates received after local-off should not turn the entity on."""
+    server = _new_server(hass)
+    thermostat = AveThermostat("uid", AVE_FAMILY_THERMOSTAT, _props(season="1"), server)
+    thermostat.async_write_ha_state = Mock()
+
+    thermostat.update_specific_property("local_off", 1)
+    thermostat.update_specific_property("season", "0")
+
+    assert thermostat.hvac_mode == HVACMode.OFF
+    assert thermostat.ave_properties.season == "0"
+    assert thermostat.extra_state_attributes["season"] == HVACMode.COOL
+
+    thermostat.update_specific_property("local_off", 0)
     assert thermostat.hvac_mode == HVACMode.COOL
 
 
@@ -255,41 +273,34 @@ async def test_async_turn_on_off_dispatches_on_off(hass: HomeAssistant) -> None:
     thermostat_on_off.assert_any_await(server, device_id=14, on_off=0)
 
 
-def test_set_name_updates_entity_and_syncs_device_name(hass: HomeAssistant) -> None:
-    """Setting thermostat name should invoke device-name sync hook."""
+def test_set_ave_name_updates_device_but_not_entity_name(hass: HomeAssistant) -> None:
+    """An AVE thermostat name should update device metadata only."""
     server = _new_server(hass)
     thermostat = AveThermostat("uid", AVE_FAMILY_THERMOSTAT, _props(), server)
     thermostat.async_write_ha_state = Mock()
     thermostat._sync_device_name = Mock()
 
-    thermostat.set_name("Thermostat Kitchen")
+    thermostat.entity_id = "climate.kitchen"
+    thermostat.set_ave_name("Kitchen")
 
-    assert thermostat.name == "Thermostat Kitchen"
-    thermostat._sync_device_name.assert_called_once_with("Thermostat Kitchen")
+    assert thermostat.name is None
+    thermostat._sync_device_name.assert_called_once_with("Kitchen")
     thermostat.async_write_ha_state.assert_called_once()
 
 
-def test_sync_device_name_respects_name_by_user(hass: HomeAssistant) -> None:
-    """Device registry sync should not overwrite user-selected device names."""
+def test_sync_device_name_delegates_registry_update(hass: HomeAssistant) -> None:
+    """Thermostat device sync should delegate translated registry metadata."""
     server = _new_server(hass)
     thermostat = AveThermostat(
         "uid", AVE_FAMILY_THERMOSTAT, _props(device_id=15), server
     )
 
-    device_registry = Mock()
-    device_registry.async_get_device.return_value = SimpleNamespace(
-        id="dev-1",
-        name_by_user="Custom",
-        name="Old",
-    )
-
     with patch(
-        "custom_components.ave_dominaplus.climate.dr.async_get",
-        return_value=device_registry,
-    ):
+        "custom_components.ave_dominaplus.climate.sync_device_registry_name"
+    ) as sync_name:
         thermostat._sync_device_name("Thermostat Living")
 
-    device_registry.async_update_device.assert_not_called()
+    sync_name.assert_called_once()
 
 
 def test_set_address_dec_updates_state(hass: HomeAssistant) -> None:

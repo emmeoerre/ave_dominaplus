@@ -82,11 +82,9 @@ async def adopt_existing_lights(server: AveWebServer, entry: ConfigEntry) -> Non
             if family not in (AVE_FAMILY_DIMMER, AVE_FAMILY_ONOFFLIGHTS):
                 continue
 
-            name = None
-            if entity.name is not None:
-                name = entity.name
-            elif entity.original_name is not None:
-                name = entity.original_name
+            ave_name = (
+                entity.original_name if server.settings.get_entity_names else None
+            )
 
             light = DimmerLight(
                 unique_id=entity.unique_id,
@@ -94,7 +92,8 @@ async def adopt_existing_lights(server: AveWebServer, entry: ConfigEntry) -> Non
                 ave_device_id=ave_device_id,
                 is_on=None,
                 webserver=server,
-                name=name,
+                name=None,
+                ave_name=ave_name,
                 address_dec=ave_address_dec,
             )
             light.entity_id = entity.entity_id
@@ -153,18 +152,11 @@ def update_light(
     already_exists = unique_id in server.lights if unique_id is not None else False
 
     if already_exists and unique_id is not None:
-        allow_name_update = (
-            name is not None
-            and server.settings.get_entity_names
-            and not check_name_changed(server.hass, unique_id)
-        )
-
         light: DimmerLight = server.lights[unique_id]
         light.handle_webserver_update(
             device_status=device_status,
             name=name,
             address_dec=address_dec,
-            allow_name_update=allow_name_update,
         )
     else:
         if address_dec is None:
@@ -178,10 +170,8 @@ def update_light(
             unique_id = build_uid(
                 server.mac_address, family, ave_device_id, address_dec
             )
-        entity_name = None
         entity_ave_name = None
         if name is not None and server.settings.get_entity_names:
-            entity_name = name
             entity_ave_name = name
 
         light = DimmerLight(
@@ -190,7 +180,7 @@ def update_light(
             ave_device_id=ave_device_id,
             is_on=device_status,
             webserver=server,
-            name=entity_name,
+            name=None,
             ave_name=entity_ave_name,
             address_dec=address_dec,
         )
@@ -200,25 +190,11 @@ def update_light(
         server.async_add_lg_entities([light])
 
 
-def check_name_changed(hass: HomeAssistant, unique_id: str) -> bool:
-    """Check if the name of the entity has changed in HA registry."""
-    entity_registry = er.async_get(hass)
-
-    entry_id = entity_registry.async_get_entity_id("light", "ave_dominaplus", unique_id)
-    if entry_id:
-        entity_entry = entity_registry.async_get(entry_id)
-        if entity_entry is not None:
-            return (
-                entity_entry.name is not None
-                and entity_entry.original_name != entity_entry.name
-            )
-    return False
-
-
 class DimmerLight(LightEntity):
     """Representation of an AVE dimmer light."""
 
     _attr_has_entity_name = True
+    _attr_name = None
     _attr_should_poll = False
     _attr_supported_color_modes = {ColorMode.BRIGHTNESS}
     _attr_color_mode = ColorMode.BRIGHTNESS
@@ -258,11 +234,6 @@ class DimmerLight(LightEntity):
             self._attr_supported_color_modes = {ColorMode.ONOFF}
             self._attr_color_mode = ColorMode.ONOFF
 
-        if name is None:
-            self._name = self.build_name()
-        else:
-            self._name = name
-
         self._attr_is_on = False
         if is_on is not None and is_on >= 0:
             self.update_state(is_on)
@@ -288,7 +259,6 @@ class DimmerLight(LightEntity):
         device_status: int,
         name: str | None = None,
         address_dec: int | None = None,
-        allow_name_update: bool = False,
     ) -> None:
         """Apply a websocket light update routed through lifecycle subscriptions."""
         if device_status >= 0:
@@ -296,8 +266,6 @@ class DimmerLight(LightEntity):
 
         if name is not None and self._webserver.settings.get_entity_names:
             self.set_ave_name(name)
-            if allow_name_update:
-                self.set_name(name)
 
         if address_dec is not None:
             self.set_address_dec(address_dec)
@@ -350,11 +318,6 @@ class DimmerLight(LightEntity):
         return self._unique_id
 
     @property
-    def name(self) -> str:
-        """Return the name of the entity."""
-        return self._name
-
-    @property
     def available(self) -> bool:
         """Return if the backing webserver connection is available."""
         return self._webserver.connected
@@ -400,13 +363,6 @@ class DimmerLight(LightEntity):
         if changed:
             self._write_state_or_defer()
 
-    def set_name(self, name: str | None) -> None:
-        """Set the entity name."""
-        if name is None:
-            return
-        self._name = name
-        self._write_state_or_defer()
-
     def set_ave_name(self, name: str | None) -> None:
         """Set AVE native name."""
         if name is not None:
@@ -423,7 +379,11 @@ class DimmerLight(LightEntity):
             ave_name=ave_name if ave_name is not None else self._ave_name,
         )
         self._attr_device_info = updated_device_info
-        sync_device_registry_name(self.hass, updated_device_info)
+        sync_device_registry_name(
+            self.hass,
+            updated_device_info,
+            config_entry_id=self._webserver.config_entry_id,
+        )
 
     def set_address_dec(self, address_dec: int | None) -> None:
         """Set the AVE decimal address."""
@@ -437,9 +397,3 @@ class DimmerLight(LightEntity):
             self._pending_state_write = True
             return
         self.async_write_ha_state()
-
-    def build_name(self) -> str:
-        """Build default entity name."""
-        if self.family == AVE_FAMILY_ONOFFLIGHTS:
-            return f"Light {self.ave_device_id}"
-        return f"Dimmer {self.ave_device_id}"

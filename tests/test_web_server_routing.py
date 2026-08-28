@@ -34,7 +34,7 @@ def _new_server(hass: HomeAssistant, **overrides) -> AveWebServer:
         "on_off_lights_as_switch": True,
     }
     settings.update(overrides)
-    return AveWebServer(settings, hass)
+    return AveWebServer(settings, hass, object())
 
 
 def _wire_callbacks(server: AveWebServer) -> None:

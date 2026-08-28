@@ -9,8 +9,14 @@ from custom_components.ave_dominaplus.web_server import AveWebServer
 from homeassistant.core import HomeAssistant
 
 
-def make_server(hass: HomeAssistant, **overrides: object) -> AveWebServer:
+def make_server(
+    hass: HomeAssistant,
+    session: Any = None,
+    **overrides: object,
+) -> AveWebServer:
     """Create an AveWebServer with deterministic defaults for tests."""
+    if session is None:
+        session = FakeClientSession()
     settings: dict[str, object] = {
         "ip_address": "192.168.1.10",
         "get_entities_names": True,
@@ -23,7 +29,7 @@ def make_server(hass: HomeAssistant, **overrides: object) -> AveWebServer:
         "on_off_lights_as_switch": True,
     }
     settings.update(overrides)
-    return AveWebServer(settings, hass)
+    return AveWebServer(settings, hass, session)
 
 
 @dataclass

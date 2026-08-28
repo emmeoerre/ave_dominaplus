@@ -12,7 +12,6 @@ from custom_components.ave_dominaplus.switch import (
     LightSwitch,
     adopt_existing_sensors,
     async_setup_entry,
-    check_name_changed,
 )
 from homeassistant.components.switch import SwitchDeviceClass
 from homeassistant.exceptions import ConfigEntryNotReady
@@ -95,7 +94,8 @@ async def test_adopt_existing_switches_filters_and_uses_original_name(hass) -> N
         await adopt_existing_sensors(server, _entry(server))
 
     assert "ave_switch_1_10" in server.switches
-    assert server.switches["ave_switch_1_10"].name == "Original Switch"
+    assert server.switches["ave_switch_1_10"].name is None
+    assert server.switches["ave_switch_1_10"]._ave_name == "Original Switch"
     server.async_add_sw_entities.assert_called_once()
 
 
@@ -124,24 +124,6 @@ async def test_adopt_existing_switches_handles_exceptions(hass) -> None:
         await adopt_existing_sensors(server, _entry(server))
 
 
-def test_switch_name_changed_helper_true_and_false(hass) -> None:
-    """Name-change helper should detect override and missing entry cases."""
-    registry = Mock()
-    registry.async_get_entity_id.return_value = "switch.test"
-    registry.async_get.return_value = SimpleNamespace(name="New", original_name="Old")
-
-    with patch(
-        "custom_components.ave_dominaplus.switch.er.async_get", return_value=registry
-    ):
-        assert check_name_changed(hass, "uid") is True
-
-    registry.async_get_entity_id.return_value = None
-    with patch(
-        "custom_components.ave_dominaplus.switch.er.async_get", return_value=registry
-    ):
-        assert check_name_changed(hass, "uid") is False
-
-
 def test_switch_properties_mutators_and_write_paths(hass) -> None:
     """Switch entity should cover property and mutator guard branches."""
     server = make_server(hass)
@@ -156,7 +138,6 @@ def test_switch_properties_mutators_and_write_paths(hass) -> None:
 
     entity.update_state(None)
     entity.update_state(-1)
-    entity.set_name(None)
     entity.set_ave_name("AVE Name")
     entity.set_address_dec(14)
 
@@ -166,5 +147,5 @@ def test_switch_properties_mutators_and_write_paths(hass) -> None:
 
     entity.entity_id = "switch.test"
     entity._pending_state_write = False
-    entity.set_name("Switch Name")
+    entity._write_state_or_defer()
     entity.async_write_ha_state.assert_called()

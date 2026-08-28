@@ -29,7 +29,7 @@ def _new_server(hass: HomeAssistant, **overrides) -> AveWebServer:
         "on_off_lights_as_switch": True,
     }
     settings.update(overrides)
-    server = AveWebServer(settings, hass)
+    server = AveWebServer(settings, hass, object())
     server.mac_address = "aa:bb:cc:dd:ee:ff"
     server.async_add_th_entities = Mock()
     return server
@@ -149,21 +149,17 @@ def test__update_thermostat_updates_existing_with_properties(
     server.thermostats[unique_id] = thermostat
     props = _props(device_id=4, name="Living")
 
-    with patch(
-        "custom_components.ave_dominaplus.climate.check_name_changed",
-        return_value=False,
-    ):
-        _update_thermostat(
-            server=server,
-            family=AVE_FAMILY_THERMOSTAT,
-            ave_device_id=4,
-            properties=props,
-            address_dec=18,
-        )
+    _update_thermostat(
+        server=server,
+        family=AVE_FAMILY_THERMOSTAT,
+        ave_device_id=4,
+        properties=props,
+        address_dec=18,
+    )
 
     thermostat.update_all_properties.assert_called_once_with(props)
     thermostat.set_ave_name.assert_called_once_with("Living")
-    thermostat.set_name.assert_called_once_with("Living")
+    thermostat.set_name.assert_not_called()
     thermostat.set_address_dec.assert_called_once_with(18)
 
 
@@ -177,16 +173,12 @@ def test__update_thermostat_existing_respects_name_override(
     server.thermostats[unique_id] = thermostat
     props = _props(device_id=4, name="Living")
 
-    with patch(
-        "custom_components.ave_dominaplus.climate.check_name_changed",
-        return_value=True,
-    ):
-        _update_thermostat(
-            server=server,
-            family=AVE_FAMILY_THERMOSTAT,
-            ave_device_id=4,
-            properties=props,
-        )
+    _update_thermostat(
+        server=server,
+        family=AVE_FAMILY_THERMOSTAT,
+        ave_device_id=4,
+        properties=props,
+    )
 
     thermostat.set_ave_name.assert_called_once_with("Living")
     thermostat.set_name.assert_not_called()

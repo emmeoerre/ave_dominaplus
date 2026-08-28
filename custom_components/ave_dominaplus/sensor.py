@@ -11,7 +11,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import AVE_FAMILY_THERMOSTAT
-from .device_info import build_endpoint_device_info
+from .device_info import build_endpoint_device_info, sync_device_registry_name
 from .web_server import AveWebServer
 
 _LOGGER = logging.getLogger(__name__)
@@ -59,18 +59,17 @@ async def adopt_existing_sensors(server: AveWebServer, entry: ConfigEntry) -> No
                 # Create a new sensor instance
                 family = int(entity.unique_id.split("_")[4])
                 ave_device_id = int(entity.unique_id.split("_")[5])
-                name = None
-                if entity.name is not None:
-                    name = entity.name
-                elif entity.original_name is not None:
-                    name = entity.original_name
+                ave_name = None
+                if server.settings.get_entity_names and entity.original_name:
+                    ave_name = _offset_source_name(entity.original_name)
 
                 sensor = ThermostatOffset(
                     unique_id=entity.unique_id,
                     family=family,
                     ave_device_id=ave_device_id,
                     webserver=server,
-                    name=name,
+                    name=None,
+                    ave_name=ave_name,
                     value=None,
                 )
                 sensor.entity_id = entity.entity_id
@@ -78,8 +77,7 @@ async def adopt_existing_sensors(server: AveWebServer, entry: ConfigEntry) -> No
                 server.numbers[entity.unique_id] = sensor
                 server.async_add_number_entities([sensor])
                 _LOGGER.info(
-                    "Adopted existing number entity with name %s with unique_id %s",
-                    sensor.name,
+                    "Adopted existing offset sensor with unique_id %s",
                     sensor.unique_id,
                 )
     except Exception:
@@ -92,6 +90,14 @@ def set_sensor_uid(webserver: AveWebServer, family, ave_device_id) -> str:
     if family == AVE_FAMILY_THERMOSTAT:
         return f"ave_{webserver.mac_address}_thermostat_offset_{family}_{ave_device_id}"
     return f"ave_{webserver.mac_address}_number_{family}_{ave_device_id}"
+
+
+def _offset_source_name(original_name: str) -> str:
+    """Recover the AVE device name from the legacy offset entity label."""
+    prefix = "thermostat offset "
+    if original_name.lower().startswith(prefix):
+        return original_name[len(prefix) :]
+    return original_name
 
 
 def update_th_offset(
@@ -126,6 +132,8 @@ def update_th_offset(
         # Update the existing sensor's state
         number: ThermostatOffset = server.numbers[unique_id]
         number.update_value(offset_value)
+        if name is not None and server.settings.get_entity_names:
+            number.set_ave_name(name)
         if address_dec is not None:
             number.set_address_dec(address_dec)
     else:
@@ -152,28 +160,12 @@ def update_th_offset(
         )  # Add the new sensor to Home Assistant
 
 
-def check_name_changed(hass: HomeAssistant, unique_id: str) -> bool:
-    """Check if the name of the sensor has changed."""
-    entity_registry = er.async_get(hass)
-
-    entry_id = entity_registry.async_get_entity_id(
-        "number", "ave_dominaplus", unique_id
-    )
-    if entry_id:
-        entity_entry = entity_registry.async_get(entry_id)
-        if entity_entry is not None:
-            return (
-                entity_entry.name is not None
-                and entity_entry.original_name != entity_entry.name
-            )
-    return False
-
-
 class ThermostatOffset(SensorEntity):
     """Representation of a thermostat offset."""
 
     _attr_has_entity_name = True
     _attr_should_poll = False
+    _attr_translation_key = "thermostat_offset"
 
     _attr_native_max_value = 5.0
     _attr_native_min_value = -5.0
@@ -207,14 +199,6 @@ class ThermostatOffset(SensorEntity):
             ave_name=ave_name,
         )
 
-        if name is None:
-            if webserver.settings.get_entity_names:
-                self._name = f"Thermostat offset {self._ave_name or self.ave_device_id}"
-            else:
-                self._name = self.build_name()
-        else:
-            self._name = name
-
         if value is not None:
             self.update_value(value, first_update=True)
 
@@ -235,11 +219,6 @@ class ThermostatOffset(SensorEntity):
     def unique_id(self) -> str:
         """Return the unique ID of the sensor."""
         return self._unique_id
-
-    @property
-    def name(self) -> str:
-        """Return the name of the sensor."""
-        return self._name
 
     @property
     def available(self) -> bool:
@@ -275,17 +254,22 @@ class ThermostatOffset(SensorEntity):
         if not first_update:
             self._write_state_or_defer()
 
-    def set_name(self, name: str | None) -> None:
-        """Set the name of the sensor."""
-        if name is None:
-            return
-        self._name = name
-        self._write_state_or_defer()
-
     def set_ave_name(self, name: str | None) -> None:
         """Set the AVE name of the sensor."""
         if name is not None:
-            self._ave_name = name + " offset"
+            self._ave_name = name
+            updated_device_info = build_endpoint_device_info(
+                self._webserver,
+                self.family,
+                self.ave_device_id,
+                ave_name=name,
+            )
+            self._attr_device_info = updated_device_info
+            sync_device_registry_name(
+                self.hass,
+                updated_device_info,
+                config_entry_id=self._webserver.config_entry_id,
+            )
             self._write_state_or_defer()
 
     def set_address_dec(self, address_dec: int | None) -> None:
@@ -293,11 +277,6 @@ class ThermostatOffset(SensorEntity):
         if address_dec is not None and self._address_dec != address_dec:
             self._address_dec = address_dec
             self._write_state_or_defer()
-
-    def build_name(self) -> str:
-        """Build the name of the sensor based on its family and device ID."""
-        device_name = self._ave_name or self.ave_device_id
-        return f"Thermostat Offset {device_name}"
 
     def _write_state_or_defer(self) -> None:
         """Write state now when possible, otherwise defer until entity attach."""

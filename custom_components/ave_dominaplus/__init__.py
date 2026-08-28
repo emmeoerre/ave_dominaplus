@@ -12,6 +12,7 @@ from homeassistant.helpers import (
     device_registry as dr,
     entity_registry as er,
 )
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import DOMAIN
 from .device_info import is_structural_parent_identifier
@@ -43,7 +44,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up AVE ws from a config entry."""
-    webserver = AveWebServer(entry.data, hass)
+    webserver = AveWebServer(entry.data, hass, async_get_clientsession(hass))
     webserver.config_entry_id = entry.entry_id
     webserver.config_entry_unique_id = entry.unique_id
     if not await webserver.authenticate():

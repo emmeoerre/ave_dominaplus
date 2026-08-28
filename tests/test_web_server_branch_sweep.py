@@ -71,7 +71,7 @@ class _FakeSession:
 
 def test_init_with_missing_keys_keeps_defaults(hass: HomeAssistant) -> None:
     """Missing keys in settings should not raise and should keep defaults."""
-    server = AveWebServer({"ip_address": "192.168.1.10"}, hass)
+    server = AveWebServer({"ip_address": "192.168.1.10"}, hass, Mock())
 
     assert server.settings.host == "192.168.1.10"
     assert server.settings.fetch_lights is True
@@ -438,32 +438,22 @@ async def test_disconnected_command_helpers_cover_remaining_error_paths(
 
 async def test_tryget_mac_address_non_200_and_exception(hass: HomeAssistant) -> None:
     """MAC helper should return None for non-200 responses and request errors."""
-    server = make_server(hass)
     non_200_session = _FakeSession(_FakeResponse(503, "unavailable"))
+    server = make_server(hass, non_200_session)
 
-    with patch(
-        "custom_components.ave_dominaplus.web_server.aiohttp.ClientSession",
-        return_value=non_200_session,
-    ):
-        assert await server.tryget_mac_address() is None
+    assert await server.tryget_mac_address() is None
 
     error_session = _FakeSession(exc=RuntimeError("boom"))
-    with patch(
-        "custom_components.ave_dominaplus.web_server.aiohttp.ClientSession",
-        return_value=error_session,
-    ):
-        assert await server.tryget_mac_address() is None
+    server = make_server(hass, error_session)
+
+    assert await server.tryget_mac_address() is None
 
 
 async def test_tryget_systeminfo_exception_returns_empty_dict(
     hass: HomeAssistant,
 ) -> None:
     """System info helper should return empty dict when request errors occur."""
-    server = make_server(hass)
     error_session = _FakeSession(exc=RuntimeError("boom"))
+    server = make_server(hass, error_session)
 
-    with patch(
-        "custom_components.ave_dominaplus.web_server.aiohttp.ClientSession",
-        return_value=error_session,
-    ):
-        assert await server.tryget_systeminfo() == {}
+    assert await server.tryget_systeminfo() == {}

@@ -5,8 +5,8 @@
         "title": "Aggiungi AVE dominaplus",
         "description": "Configura una connessione al webserver AVE dominaplus.",
         "data": {
-          "ip_address": "Indirizzo IP del webserver",
-          "get_entities_names": "Usa i nomi entità dal webserver",
+          "ip_address": "Indirizzo IPv4 o nome host del webserver",
+          "get_entities_names": "Usa i nomi dal webserver",
           "fetch_sensor_areas": "Importa le aree antifurto",
           "fetch_sensors": "Importa i sensori antifurto individuali",
           "fetch_lights": "Importa le luci",
@@ -18,7 +18,7 @@
         },
         "data_description": {
           "ip_address": "Il webserver deve essere raggiungibile dall'istanza Home Assistant.",
-          "get_entities_names": "Usa nomi e identificativi entità configurati nel sistema Domina Plus.",
+          "get_entities_names": "Usa i nomi Domina Plus per i dispositivi. Home Assistant assegna gli ID delle entita e non modifica quelli esistenti.",
           "fetch_sensors": "Vengono scoperti al primo evento rilevato. In impianti grandi può creare molte entità.",
           "fetch_covers": "Aggiunge entità tapparella/copertura (famiglie AVE 3, 16, 19).",
           "fetch_scenarios": "Aggiunge pulsanti di esecuzione scenario e binary sensor di stato in esecuzione (famiglia AVE 6).",
@@ -29,8 +29,8 @@
         "title": "Riconfigura AVE dominaplus",
         "description": "Modifica le impostazioni dell'integrazione AVE dominaplus.",
         "data": {
-          "ip_address": "Indirizzo IP del webserver",
-          "get_entities_names": "Usa i nomi entità dal webserver",
+          "ip_address": "Indirizzo IPv4 o nome host del webserver",
+          "get_entities_names": "Usa i nomi dal webserver",
           "fetch_sensor_areas": "Importa le aree antifurto",
           "fetch_sensors": "Importa i sensori antifurto individuali",
           "fetch_lights": "Importa le luci",
@@ -42,7 +42,7 @@
         },
         "data_description": {
           "ip_address": "Il webserver deve essere raggiungibile dall'istanza Home Assistant.",
-          "get_entities_names": "Usa nomi e identificativi entità configurati nel sistema Domina Plus.",
+          "get_entities_names": "Usa i nomi Domina Plus per i dispositivi. Home Assistant assegna gli ID delle entita e non modifica quelli esistenti.",
           "fetch_sensors": "Vengono scoperti al primo evento rilevato. In impianti grandi può creare molte entità.",
           "fetch_covers": "Aggiunge entità tapparella/copertura (famiglie AVE 3, 16, 19).",
           "fetch_scenarios": "Aggiunge pulsanti di esecuzione scenario e binary sensor di stato in esecuzione (famiglia AVE 6).",
@@ -57,8 +57,8 @@
         "title": "Configura il webserver AVE rilevato",
         "description": "Controlla e modifica le opzioni prima di aggiungere l'integrazione.",
         "data": {
-          "ip_address": "Indirizzo IP del webserver",
-          "get_entities_names": "Usa i nomi entità dal webserver",
+          "ip_address": "Indirizzo IPv4 o nome host del webserver",
+          "get_entities_names": "Usa i nomi dal webserver",
           "fetch_sensor_areas": "Importa le aree antifurto",
           "fetch_sensors": "Importa i sensori antifurto individuali",
           "fetch_lights": "Importa le luci",
@@ -70,7 +70,7 @@
         },
         "data_description": {
           "ip_address": "Il webserver deve essere raggiungibile dall'istanza Home Assistant.",
-          "get_entities_names": "Usa nomi e identificativi entità configurati nel sistema Domina Plus.",
+          "get_entities_names": "Usa i nomi Domina Plus per i dispositivi. Home Assistant assegna gli ID delle entita e non modifica quelli esistenti.",
           "fetch_sensors": "Vengono scoperti al primo evento rilevato. In impianti grandi può creare molte entità.",
           "fetch_covers": "Aggiunge entità tapparella/copertura (famiglie AVE 3, 16, 19).",
           "fetch_scenarios": "Aggiunge pulsanti di esecuzione scenario e binary sensor di stato in esecuzione (famiglia AVE 6).",
@@ -87,8 +87,42 @@
       "already_configured": "Dispositivo già configurato",
       "already_in_progress": "Flusso di configurazione già in corso per questo dispositivo",
       "cannot_connect": "Connessione non riuscita",
+      "ipv4_required": "Il rilevamento solo IPv6 non è supportato; configura manualmente il webserver AVE usando un indirizzo IPv4 o un nome host",
       "not_ave_webserver": "Il dispositivo scoperto non è un webserver AVE",
       "unknown": "Errore sconosciuto"
+    }
+  },
+  "device": {
+    "hub": { "name": "Hub Dominaplus" },
+    "lighting": { "name": "Luci Dominaplus" },
+    "covers": { "name": "Serramenti Dominaplus" },
+    "thermostats": { "name": "Termoregolazione Dominaplus" },
+    "antitheft_sensors": { "name": "Sensori antintrusione Dominaplus" },
+    "antitheft_areas": { "name": "Aree antintrusione Dominaplus" },
+    "scenarios": { "name": "Scenari Dominaplus" },
+    "light": { "name": "Luce {id}" },
+    "dimmer": { "name": "Dimmer {id}" },
+    "shutter": { "name": "Tapparella {id}" },
+    "blind": { "name": "Veneziana {id}" },
+    "window": { "name": "Finestra {id}" },
+    "thermostat": { "name": "Termostato {id}" },
+    "thermostat_named": { "name": "Termostato {name}" },
+    "scenario": { "name": "Scenario {id}" },
+    "scenario_named": { "name": "Scenario {name}" },
+    "device_family": { "name": "Dispositivo Dominaplus famiglia {family}" }
+  },
+  "entity": {
+    "binary_sensor": {
+      "status": { "name": "Stato" },
+      "antitheft_sensor": { "name": "Sensore {id}" },
+      "antitheft_area": { "name": "Area {id}" },
+      "scenario_running": { "name": "In esecuzione" }
+    },
+    "button": {
+      "scenario_run": { "name": "Esegui" }
+    },
+    "sensor": {
+      "thermostat_offset": { "name": "Offset" }
     }
   }
 }

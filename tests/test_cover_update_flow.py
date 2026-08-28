@@ -28,7 +28,7 @@ def _new_server(hass: HomeAssistant, **overrides) -> AveWebServer:
         "on_off_lights_as_switch": True,
     }
     settings.update(overrides)
-    server = AveWebServer(settings, hass)
+    server = AveWebServer(settings, hass, object())
     server.mac_address = "aa:bb:cc:dd:ee:ff"
     server.async_add_cv_entities = Mock()
     server.register_availability_entity = Mock()
@@ -54,7 +54,10 @@ def test_update_cover_creates_entity_when_address_available(
     unique_id = build_uid(server.mac_address, AVE_FAMILY_SHUTTER_ROLLING, 5, 16)
     assert unique_id in server.covers
     server.async_add_cv_entities.assert_called_once()
-    assert server.covers[unique_id].name == "Living Room"
+    created = server.covers[unique_id]
+    assert created.name is None
+    assert created._ave_name == "Living Room"
+    assert created._attr_device_info.get("name") == "Living Room"
 
 
 def test_update_cover_does_not_create_without_address(hass: HomeAssistant) -> None:
@@ -106,18 +109,14 @@ def test_update_cover_existing_entity_respects_manual_rename(
     cover.set_address_dec = Mock()
     server.covers[unique_id] = cover
 
-    with patch(
-        "custom_components.ave_dominaplus.cover.check_name_changed",
-        return_value=True,
-    ):
-        update_cover(
-            server,
-            AVE_FAMILY_SHUTTER_ROLLING,
-            ave_device_id=5,
-            device_status=4,
-            name="AVE Name",
-            address_dec=16,
-        )
+    update_cover(
+        server,
+        AVE_FAMILY_SHUTTER_ROLLING,
+        ave_device_id=5,
+        device_status=4,
+        name="AVE Name",
+        address_dec=16,
+    )
 
     cover.update_state.assert_called_once_with(4)
     cover.set_ave_name.assert_called_once_with("AVE Name")
@@ -139,20 +138,16 @@ def test_update_cover_existing_entity_updates_name_when_allowed(
     cover.update_state = Mock()
     server.covers[unique_id] = cover
 
-    with patch(
-        "custom_components.ave_dominaplus.cover.check_name_changed",
-        return_value=False,
-    ):
-        update_cover(
-            server,
-            AVE_FAMILY_SHUTTER_ROLLING,
-            ave_device_id=5,
-            device_status=2,
-            name="AVE Name",
-            address_dec=16,
-        )
+    update_cover(
+        server,
+        AVE_FAMILY_SHUTTER_ROLLING,
+        ave_device_id=5,
+        device_status=2,
+        name="AVE Name",
+        address_dec=16,
+    )
 
-    cover.set_name.assert_called_once_with("AVE Name")
+    cover.set_name.assert_not_called()
     cover.set_ave_name.assert_called_once_with("AVE Name")
 
 

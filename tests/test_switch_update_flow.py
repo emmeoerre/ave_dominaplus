@@ -31,7 +31,7 @@ def _new_server(hass: HomeAssistant, **overrides) -> AveWebServer:
         "on_off_lights_as_switch": True,
     }
     settings.update(overrides)
-    server = AveWebServer(settings, hass)
+    server = AveWebServer(settings, hass, object())
     server.mac_address = "aa:bb:cc:dd:ee:ff"
     server.async_add_sw_entities = Mock()
     server.register_availability_entity = Mock()
@@ -55,7 +55,10 @@ def test_update_switch_creates_entity_for_onoff_family(hass: HomeAssistant) -> N
     unique_id = set_sensor_uid(server, AVE_FAMILY_ONOFFLIGHTS, 5)
     assert unique_id in server.switches
     server.async_add_sw_entities.assert_called_once()
-    assert server.switches[unique_id].name == "Kitchen"
+    created = server.switches[unique_id]
+    assert created.name is None
+    assert created._ave_name == "Kitchen"
+    assert created._attr_device_info.get("name") == "Kitchen"
 
 
 def test_update_switch_skips_unsupported_family(hass: HomeAssistant) -> None:
@@ -89,11 +92,7 @@ def test_update_switch_existing_respects_manual_rename(hass: HomeAssistant) -> N
     switch.set_address_dec = Mock()
     server.switches[unique_id] = switch
 
-    with patch(
-        "custom_components.ave_dominaplus.switch.check_name_changed",
-        return_value=True,
-    ):
-        update_switch(server, AVE_FAMILY_ONOFFLIGHTS, 5, 1, name="AVE", address_dec=9)
+    update_switch(server, AVE_FAMILY_ONOFFLIGHTS, 5, 1, name="AVE", address_dec=9)
 
     switch.update_state.assert_called_once_with(1)
     switch.set_ave_name.assert_called_once_with("AVE")
@@ -110,14 +109,10 @@ def test_update_switch_existing_updates_name_when_allowed(hass: HomeAssistant) -
     switch.set_ave_name = Mock()
     server.switches[unique_id] = switch
 
-    with patch(
-        "custom_components.ave_dominaplus.switch.check_name_changed",
-        return_value=False,
-    ):
-        update_switch(server, AVE_FAMILY_ONOFFLIGHTS, 5, 1, name="AVE")
+    update_switch(server, AVE_FAMILY_ONOFFLIGHTS, 5, 1, name="AVE")
 
     switch.set_ave_name.assert_called_once_with("AVE")
-    switch.set_name.assert_called_once_with("AVE")
+    switch.set_name.assert_not_called()
 
 
 async def test_switch_commands_route_to_webserver(hass: HomeAssistant) -> None:
@@ -173,7 +168,9 @@ def test_switch_build_name_covers_scenario_family(hass: HomeAssistant) -> None:
     server = _new_server(hass)
     switch = LightSwitch("uid", AVE_FAMILY_SCENARIO, 33, 0, server)
 
-    assert switch.name == "Scenario 33"
+    assert switch.name is None
+    assert switch._attr_device_info.get("translation_key") == "scenario"
+    assert switch._attr_device_info.get("translation_placeholders") == {"id": "33"}
 
 
 def test_switch_set_ave_name_updates_device_info_name(hass: HomeAssistant) -> None:
@@ -185,12 +182,13 @@ def test_switch_set_ave_name_updates_device_info_name(hass: HomeAssistant) -> No
         12,
         0,
         server,
-        name="Light 12",
+        ave_name=None,
     )
     switch.entity_id = "switch.uid"
     switch.async_write_ha_state = Mock()
 
-    assert switch._attr_device_info.get("name") == "Light 12"
+    assert switch._attr_device_info.get("name") is None
+    assert switch._attr_device_info.get("translation_key") == "light"
 
     switch.set_ave_name("Kitchen")
 

@@ -41,7 +41,7 @@ def _new_server(hass: HomeAssistant) -> AveWebServer:
         "fetch_thermostats": True,
         "on_off_lights_as_switch": True,
     }
-    server = AveWebServer(settings, hass)
+    server = AveWebServer(settings, hass, object())
     server.mac_address = "aa:bb:cc:dd:ee:ff"
     server.async_add_lg_entities = Mock()
     server.async_add_cv_entities = Mock()

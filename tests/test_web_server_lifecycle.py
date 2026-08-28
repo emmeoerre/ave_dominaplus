@@ -20,17 +20,13 @@ async def test_authenticate_success_sets_connected_and_metadata(
     hass: HomeAssistant,
 ) -> None:
     """Successful authenticate should set connection state and metadata."""
-    server = make_server(hass)
     ws_conn = FakeWSConnection()
     session = FakeClientSession(ws_conn=ws_conn)
+    server = make_server(hass, session)
     server.tryget_mac_address = AsyncMock(return_value="aa:bb:cc:dd:ee:ff")
     server.tryget_systeminfo = AsyncMock(return_value={"firmware": "1.2.3"})
 
-    with patch(
-        "custom_components.ave_dominaplus.web_server.aiohttp.ClientSession",
-        return_value=session,
-    ):
-        ok = await server.authenticate()
+    ok = await server.authenticate()
 
     assert ok is True
     assert server.connected is True
@@ -44,51 +40,40 @@ async def test_authenticate_client_error_cleans_up_resources(
     hass: HomeAssistant,
 ) -> None:
     """Client errors should close stale resources and return False."""
-    server = make_server(hass)
     stale_ws = FakeWSConnection()
-    server.ws_conn = stale_ws
     failing_session = FakeClientSession(ws_exc=aiohttp.ClientError("network"))
+    server = make_server(hass, failing_session)
+    server.ws_conn = stale_ws
 
-    with patch(
-        "custom_components.ave_dominaplus.web_server.aiohttp.ClientSession",
-        return_value=failing_session,
-    ):
-        ok = await server.authenticate()
+    ok = await server.authenticate()
 
     assert ok is False
     assert stale_ws.closed is True
     assert server.ws_conn is None
-    assert failing_session.closed is True
-    assert server._ws_session is None
+    assert failing_session.closed is False
 
 
 async def test_authenticate_unexpected_error_cleans_up_resources(
     hass: HomeAssistant,
 ) -> None:
     """Unexpected authenticate errors should also close resources and return False."""
-    server = make_server(hass)
     stale_ws = FakeWSConnection()
-    server.ws_conn = stale_ws
     failing_session = FakeClientSession(ws_exc=RuntimeError("boom"))
+    server = make_server(hass, failing_session)
+    server.ws_conn = stale_ws
 
-    with patch(
-        "custom_components.ave_dominaplus.web_server.aiohttp.ClientSession",
-        return_value=failing_session,
-    ):
-        ok = await server.authenticate()
+    ok = await server.authenticate()
 
     assert ok is False
     assert stale_ws.closed is True
     assert server.ws_conn is None
-    assert failing_session.closed is True
-    assert server._ws_session is None
+    assert failing_session.closed is False
 
 
 async def test_disconnect_cancels_tasks_and_closes_connections(
     hass: HomeAssistant,
 ) -> None:
-    """Disconnect should cancel pending tasks and close ws/session."""
-    server = make_server(hass)
+    """Disconnect should cancel pending tasks without closing the shared session."""
     pending_connect_task = Mock()
     pending_connect_task.done.return_value = False
     pending_connect_task.cancel = Mock()
@@ -98,10 +83,10 @@ async def test_disconnect_cancels_tasks_and_closes_connections(
 
     ws_conn = FakeWSConnection()
     session = FakeClientSession(ws_conn=FakeWSConnection())
+    server = make_server(hass, session)
     server.connect_actions_task = pending_connect_task
     server.thermostat_fetch_task = pending_thermostat_task
     server.ws_conn = ws_conn
-    server._ws_session = session
     server._set_connected = Mock()
 
     await server.disconnect()
@@ -110,7 +95,7 @@ async def test_disconnect_cancels_tasks_and_closes_connections(
     pending_connect_task.cancel.assert_called_once()
     pending_thermostat_task.cancel.assert_called_once()
     assert ws_conn.closed is True
-    assert session.closed is True
+    assert session.closed is False
     server._set_connected.assert_called_once_with(False, log_transition=False)
 
 

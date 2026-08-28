@@ -28,7 +28,7 @@ def _new_server(hass: HomeAssistant, **overrides) -> AveWebServer:
         "on_off_lights_as_switch": True,
     }
     settings.update(overrides)
-    return AveWebServer(settings, hass)
+    return AveWebServer(settings, hass, object())
 
 
 async def test_on_connect_actions_sends_expected_bootstrap_commands(

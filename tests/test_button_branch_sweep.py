@@ -11,7 +11,6 @@ from custom_components.ave_dominaplus.button import (
     ScenarioButton,
     adopt_existing_buttons,
     async_setup_entry,
-    check_name_changed,
     set_button_uid,
     update_button,
 )
@@ -169,7 +168,8 @@ async def test_adopt_existing_buttons_filters_and_adopts_valid_entry(hass) -> No
 
     adopted = server.buttons["uid-valid"]
     assert isinstance(adopted, ScenarioButton)
-    assert adopted.name == "Night"
+    assert adopted._attr_translation_key == "scenario_run"
+    assert adopted._ave_name == "Night"
     assert adopted.entity_id == "button.night"
     server.async_add_bt_entities.assert_called_once_with([adopted])
 
@@ -212,34 +212,10 @@ def test_update_button_existing_sets_name_when_not_user_renamed(hass) -> None:
     button.set_ave_name = Mock()
     server.buttons[unique_id] = button
 
-    with patch(
-        "custom_components.ave_dominaplus.button.check_name_changed",
-        return_value=False,
-    ):
-        update_button(server, AVE_FAMILY_SCENARIO, 4, name="Evening")
+    update_button(server, AVE_FAMILY_SCENARIO, 4, name="Evening")
 
     button.set_ave_name.assert_called_once_with("Evening")
-    button.set_name.assert_called_once_with("Evening Run")
-
-
-def test_check_name_changed_true_and_false_branches(hass) -> None:
-    """Name-change helper should detect override and missing entry paths."""
-    registry = Mock()
-    registry.async_get_entity_id.return_value = "button.test"
-    registry.async_get.return_value = SimpleNamespace(name="New", original_name="Old")
-
-    with patch(
-        "custom_components.ave_dominaplus.button.er.async_get",
-        return_value=registry,
-    ):
-        assert check_name_changed(hass, "uid") is True
-
-    registry.async_get_entity_id.return_value = None
-    with patch(
-        "custom_components.ave_dominaplus.button.er.async_get",
-        return_value=registry,
-    ):
-        assert check_name_changed(hass, "uid") is False
+    button.set_name.assert_not_called()
 
 
 def test_scenario_button_properties_and_state_write_paths(hass) -> None:
@@ -258,7 +234,7 @@ def test_scenario_button_properties_and_state_write_paths(hass) -> None:
     button.async_write_ha_state = Mock()
 
     assert button.unique_id == "uid"
-    assert button.name == "Scenario 7 Run"
+    assert button._attr_translation_key == "scenario_run"
     assert button.available is True
     assert button.extra_state_attributes == {
         "AVE_family": AVE_FAMILY_SCENARIO,
@@ -269,7 +245,7 @@ def test_scenario_button_properties_and_state_write_paths(hass) -> None:
 
     # Exercise deferred state writes when entity is not yet fully attached.
     button.hass = None
-    button.set_name("Deferred")
+    button._write_state_or_defer()
     assert button._pending_state_write is True
     button.hass = hass
     button.entity_id = None
@@ -278,10 +254,9 @@ def test_scenario_button_properties_and_state_write_paths(hass) -> None:
     button.entity_id = "button.uid"
 
     writes_before = button.async_write_ha_state.call_count
-    button.set_name("Immediate")
+    button._write_state_or_defer()
     assert button.async_write_ha_state.call_count == writes_before + 1
 
     writes_before = button.async_write_ha_state.call_count
-    button.set_name(None)
     button.set_ave_name(None)
     assert button.async_write_ha_state.call_count == writes_before

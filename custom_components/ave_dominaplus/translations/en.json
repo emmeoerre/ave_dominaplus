@@ -5,8 +5,8 @@
         "title": "Add AVE dominaplus",
         "description": "Set a connection to the AVE dominaplus webserver.",
         "data": {
-          "ip_address": "Webserver IP address",
-          "get_entities_names": "Get entities names from webserver",
+          "ip_address": "Webserver IPv4 address or hostname",
+          "get_entities_names": "Use names from webserver",
           "fetch_sensor_areas": "Get antitheft sensor areas",
           "fetch_sensors": "Get individual antitheft sensors",
           "fetch_lights": "Get lights",
@@ -18,7 +18,7 @@
         },
         "data_description": {
           "ip_address": "The webserver must be reachable from the Home Assistant instance.",
-          "get_entities_names": "Will use the entities names and IDs as set in the Domina Plus system.",
+          "get_entities_names": "Use Domina Plus names for device labels. Home Assistant assigns entity IDs, and existing IDs are not changed.",
           "fetch_sensors": "Will be discovered at the first event they fire. May create many entries in big systems.",
           "fetch_covers": "Adds shutter/cover entities (AVE families 3, 16, 19).",
           "fetch_scenarios": "Adds scenario run buttons and running-state binary sensors (AVE family 6).",
@@ -29,8 +29,8 @@
         "title": "Reconfigure AVE dominaplus",
         "description": "Change the settings of the AVE dominaplus integration.",
         "data": {
-          "ip_address": "Webserver IP address",
-          "get_entities_names": "Get entities names from webserver",
+          "ip_address": "Webserver IPv4 address or hostname",
+          "get_entities_names": "Use names from webserver",
           "fetch_sensor_areas": "Get antitheft sensor areas",
           "fetch_sensors": "Get individual antitheft sensors",
           "fetch_lights": "Get lights",
@@ -42,7 +42,7 @@
         },
         "data_description": {
           "ip_address": "The webserver must be reachable from the Home Assistant instance.",
-          "get_entities_names": "Will use the entities names and IDs as set in the Domina Plus system.",
+          "get_entities_names": "Use Domina Plus names for device labels. Home Assistant assigns entity IDs, and existing IDs are not changed.",
           "fetch_sensors": "Will be discovered at the first event they fire. May create many entries in big systems.",
           "fetch_covers": "Adds shutter/cover entities (AVE families 3, 16, 19).",
           "fetch_scenarios": "Adds scenario run buttons and running-state binary sensors (AVE family 6).",
@@ -57,8 +57,8 @@
         "title": "Configure discovered AVE webserver",
         "description": "Review and adjust options before adding this integration.",
         "data": {
-          "ip_address": "Webserver IP address",
-          "get_entities_names": "Get entities names from webserver",
+          "ip_address": "Webserver IPv4 address or hostname",
+          "get_entities_names": "Use names from webserver",
           "fetch_sensor_areas": "Get antitheft sensor areas",
           "fetch_sensors": "Get individual antitheft sensors",
           "fetch_lights": "Get lights",
@@ -70,7 +70,7 @@
         },
         "data_description": {
           "ip_address": "The webserver must be reachable from the Home Assistant instance.",
-          "get_entities_names": "Will use the entities names and IDs as set in the Domina Plus system.",
+          "get_entities_names": "Use Domina Plus names for device labels. Home Assistant assigns entity IDs, and existing IDs are not changed.",
           "fetch_sensors": "Will be discovered at the first event they fire. May create many entries in big systems.",
           "fetch_covers": "Adds shutter/cover entities (AVE families 3, 16, 19).",
           "fetch_scenarios": "Adds scenario run buttons and running-state binary sensors (AVE family 6).",
@@ -87,8 +87,42 @@
       "already_configured": "Device is already configured",
       "already_in_progress": "Config flow already in progress for this device",
       "cannot_connect": "Failed to connect",
+      "ipv4_required": "IPv6-only discovery is not supported; configure the AVE webserver manually using an IPv4 address or hostname",
       "not_ave_webserver": "Discovered device is not an AVE webserver",
       "unknown": "Unknown error"
+    }
+  },
+  "device": {
+    "hub": { "name": "Dominaplus Hub" },
+    "lighting": { "name": "Dominaplus Lighting" },
+    "covers": { "name": "Dominaplus Covers" },
+    "thermostats": { "name": "Dominaplus Thermostats" },
+    "antitheft_sensors": { "name": "Dominaplus Antitheft Sensors" },
+    "antitheft_areas": { "name": "Dominaplus Antitheft Areas" },
+    "scenarios": { "name": "Dominaplus Scenarios" },
+    "light": { "name": "Light {id}" },
+    "dimmer": { "name": "Dimmer {id}" },
+    "shutter": { "name": "Shutter {id}" },
+    "blind": { "name": "Blind {id}" },
+    "window": { "name": "Window {id}" },
+    "thermostat": { "name": "Thermostat {id}" },
+    "thermostat_named": { "name": "Thermostat {name}" },
+    "scenario": { "name": "Scenario {id}" },
+    "scenario_named": { "name": "Scenario {name}" },
+    "device_family": { "name": "Dominaplus device family {family}" }
+  },
+  "entity": {
+    "binary_sensor": {
+      "status": { "name": "Status" },
+      "antitheft_sensor": { "name": "Sensor {id}" },
+      "antitheft_area": { "name": "Area {id}" },
+      "scenario_running": { "name": "Running" }
+    },
+    "button": {
+      "scenario_run": { "name": "Run" }
+    },
+    "sensor": {
+      "thermostat_offset": { "name": "Offset" }
     }
   }
 }

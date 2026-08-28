@@ -51,15 +51,6 @@ _GROUP_MODELS: dict[str, str] = {
     _GROUP_SCENARIOS: "AVE dominaplus scenarios",
 }
 
-_GROUP_NAMES: dict[str, str] = {
-    _GROUP_LIGHTING: "Dominaplus Lighting",
-    _GROUP_COVERS: "Dominaplus Covers",
-    _GROUP_THERMOSTATS: "Dominaplus Thermostats",
-    _GROUP_ANTITHEFT_SENSORS: "Dominaplus Antitheft Sensors",
-    _GROUP_ANTITHEFT_AREAS: "Dominaplus Antitheft Areas",
-    _GROUP_SCENARIOS: "Dominaplus Scenarios",
-}
-
 _PROTECTED_DEVICE_SUFFIXES = (
     f"_{_GROUP_LIGHTING}",
     f"_{_GROUP_COVERS}",
@@ -138,68 +129,45 @@ def _clean_ave_device_name(ave_name: str | None) -> str | None:
     return clean_name or None
 
 
-def _thermostat_device_name(ave_device_id: int, ave_name: str | None) -> str:
-    """Build thermostat device name from AVE name or fallback device id."""
+def _endpoint_naming(
+    family: int, ave_device_id: int, ave_name: str | None
+) -> tuple[str | None, str | None, dict[str, str] | None]:
+    """Return explicit or translated endpoint device naming metadata."""
     clean_name = _clean_ave_device_name(ave_name)
-    if not clean_name:
-        return f"Thermostat {ave_device_id}"
-    if clean_name.lower().startswith("thermostat "):
-        return clean_name
-    return f"Thermostat {clean_name}"
-
-
-def _scenario_device_name(ave_device_id: int, ave_name: str | None) -> str:
-    """Build scenario device name from AVE name or fallback device id."""
-    clean_name = _clean_ave_device_name(ave_name)
-    if not clean_name:
-        return f"Scenario {ave_device_id}"
-    if clean_name.lower().startswith("scenario "):
-        return clean_name
-    return f"Scenario {clean_name}"
-
-
-def _lighting_device_name(family: int, ave_device_id: int, ave_name: str | None) -> str:
-    """Build lighting endpoint device name from AVE name or fallback id."""
-    clean_name = _clean_ave_device_name(ave_name)
-    if clean_name:
-        return clean_name
-    if family == AVE_FAMILY_ONOFFLIGHTS:
-        return f"Light {ave_device_id}"
-    return f"Dimmer {ave_device_id}"
-
-
-def _cover_device_name(family: int, ave_device_id: int, ave_name: str | None) -> str:
-    """Build cover endpoint device name from AVE name or fallback id."""
-    clean_name = _clean_ave_device_name(ave_name)
-    if clean_name:
-        return clean_name
-    if family == AVE_FAMILY_SHUTTER_ROLLING:
-        return f"Shutter {ave_device_id}"
-    if family == AVE_FAMILY_SHUTTER_SLIDING:
-        return f"Blind {ave_device_id}"
-    if family == AVE_FAMILY_SHUTTER_HUNG:
-        return f"Window {ave_device_id}"
-    return f"Cover {ave_device_id}"
-
-
-def _endpoint_name(family: int, ave_device_id: int, ave_name: str | None) -> str:
-    """Return a stable endpoint device name."""
     if family in (AVE_FAMILY_ONOFFLIGHTS, AVE_FAMILY_DIMMER):
-        return _lighting_device_name(family, ave_device_id, ave_name)
+        if clean_name:
+            return clean_name, None, None
+        key = "light" if family == AVE_FAMILY_ONOFFLIGHTS else "dimmer"
+        return None, key, {"id": str(ave_device_id)}
     if family in (
         AVE_FAMILY_SHUTTER_ROLLING,
         AVE_FAMILY_SHUTTER_SLIDING,
         AVE_FAMILY_SHUTTER_HUNG,
     ):
-        return _cover_device_name(family, ave_device_id, ave_name)
+        if clean_name:
+            return clean_name, None, None
+        key = {
+            AVE_FAMILY_SHUTTER_ROLLING: "shutter",
+            AVE_FAMILY_SHUTTER_SLIDING: "blind",
+            AVE_FAMILY_SHUTTER_HUNG: "window",
+        }[family]
+        return None, key, {"id": str(ave_device_id)}
     if family == AVE_FAMILY_THERMOSTAT:
-        return _thermostat_device_name(ave_device_id, ave_name)
+        if clean_name and clean_name.lower().startswith("thermostat "):
+            return clean_name, None, None
+        if clean_name:
+            return None, "thermostat_named", {"name": clean_name}
+        return None, "thermostat", {"id": str(ave_device_id)}
     if family == AVE_FAMILY_SCENARIO:
-        return _scenario_device_name(ave_device_id, ave_name)
+        if clean_name and clean_name.lower().startswith("scenario "):
+            return clean_name, None, None
+        if clean_name:
+            return None, "scenario_named", {"name": clean_name}
+        return None, "scenario", {"id": str(ave_device_id)}
     group = _FAMILY_TO_GROUP.get(family)
     if group:
-        return _GROUP_NAMES[group]
-    return f"Dominaplus Device Family {family}"
+        return None, group, None
+    return None, "device_family", {"family": str(family)}
 
 
 def _lighting_parent_device_identifier(server: AveWebServer) -> tuple[str, str]:
@@ -236,7 +204,7 @@ def build_hub_device_info(server: AveWebServer) -> DeviceInfo:
         connections=connections,
         manufacturer="AVE",
         model="AVE dominaplus webserver",
-        name="Dominaplus Hub",
+        translation_key="hub",
         configuration_url=f"http://{server.settings.host}",
     )
 
@@ -272,11 +240,17 @@ def build_endpoint_device_info(
     elif family == AVE_FAMILY_SCENARIO:
         via_device = _scenarios_parent_device_identifier(server)
 
+    name, translation_key, translation_placeholders = _endpoint_naming(
+        family, ave_device_id, ave_name
+    )
+
     return DeviceInfo(
         identifiers={endpoint_identifier},
         manufacturer="AVE",
         model=_endpoint_model(family),
-        name=_endpoint_name(family, ave_device_id, ave_name),
+        name=name,
+        translation_key=translation_key,
+        translation_placeholders=translation_placeholders,
         via_device=via_device,
         configuration_url=f"http://{server.settings.host}",
     )
@@ -294,7 +268,7 @@ def ensure_lighting_parent_device(server: AveWebServer, config_entry_id: str) ->
             identifiers={_lighting_parent_device_identifier(server)},
             manufacturer="AVE",
             model=_GROUP_MODELS[_GROUP_LIGHTING],
-            name=_GROUP_NAMES[_GROUP_LIGHTING],
+            translation_key=_GROUP_LIGHTING,
             via_device=_hub_device_identifier(server),
             configuration_url=f"http://{server.settings.host}",
         )
@@ -315,7 +289,7 @@ def ensure_scenarios_parent_device(server: AveWebServer, config_entry_id: str) -
             identifiers={_scenarios_parent_device_identifier(server)},
             manufacturer="AVE",
             model=_GROUP_MODELS[_GROUP_SCENARIOS],
-            name=_GROUP_NAMES[_GROUP_SCENARIOS],
+            translation_key=_GROUP_SCENARIOS,
             via_device=_hub_device_identifier(server),
             configuration_url=f"http://{server.settings.host}",
         )
@@ -336,7 +310,7 @@ def ensure_covers_parent_device(server: AveWebServer, config_entry_id: str) -> N
             identifiers={_covers_parent_device_identifier(server)},
             manufacturer="AVE",
             model=_GROUP_MODELS[_GROUP_COVERS],
-            name=_GROUP_NAMES[_GROUP_COVERS],
+            translation_key=_GROUP_COVERS,
             via_device=_hub_device_identifier(server),
             configuration_url=f"http://{server.settings.host}",
         )
@@ -359,7 +333,7 @@ def ensure_thermostats_parent_device(
             identifiers={_thermostats_parent_device_identifier(server)},
             manufacturer="AVE",
             model=_GROUP_MODELS[_GROUP_THERMOSTATS],
-            name=_GROUP_NAMES[_GROUP_THERMOSTATS],
+            translation_key=_GROUP_THERMOSTATS,
             via_device=_hub_device_identifier(server),
             configuration_url=f"http://{server.settings.host}",
         )
@@ -372,6 +346,7 @@ def sync_device_registry_name(
     hass: HomeAssistant | None,
     device_info: DeviceInfo,
     *,
+    config_entry_id: str | None = None,
     identifiers: set[tuple[str, str]] | None = None,
     device_registry_getter: Callable[[HomeAssistant], Any] | None = None,
 ) -> None:
@@ -389,6 +364,26 @@ def sync_device_registry_name(
 
     get_registry = device_registry_getter or dr.async_get
     device_registry = get_registry(hass)
+    if config_entry_id:
+        try:
+            device_registry.async_get_or_create(
+                config_entry_id=config_entry_id,
+                configuration_url=device_info.get("configuration_url"),
+                connections=device_info.get("connections"),
+                identifiers=resolved_identifiers,
+                manufacturer=device_info.get("manufacturer"),
+                model=device_info.get("model"),
+                name=device_info.get("name"),
+                translation_key=device_info.get("translation_key"),
+                translation_placeholders=device_info.get("translation_placeholders"),
+                via_device=device_info.get("via_device"),
+            )
+        except HomeAssistantError:
+            # Tests and early setup may not have a registered config entry yet.
+            pass
+        else:
+            return
+
     device_entry = device_registry.async_get_device(identifiers=resolved_identifiers)
     if device_entry is None:
         return

@@ -1,6 +1,6 @@
 # AVE Dominaplus Quality Scale Audit
 
-Date: 2026-04-14
+Last reviewed: 2026-07-20
 Source rules reviewed: https://developers.home-assistant.io/docs/core/integration-quality-scale/rules
 
 Legend:
@@ -36,9 +36,9 @@ Evidence: tests/test_config_flow.py now covers user flow, zeroconf flow, duplica
 Action: keep tests updated whenever new config/reconfigure flow branches are introduced.
 
 6. config-flow
-Status: Covered
-Evidence: manifest enables config_flow; config_flow.py implements user setup, discovery, and reconfigure.
-Action: maintain flow parity as fields evolve.
+Status: Missing
+Evidence: manifest enables config_flow and config_flow.py implements user setup, discovery, and reconfigure, but adjustable feature settings are stored in ConfigEntry.data instead of ConfigEntry.options.
+Action: migrate adjustable feature settings to ConfigEntry.options while keeping connection data in ConfigEntry.data.
 
 7. config-flow data_description
 Status: Covered
@@ -46,9 +46,9 @@ Evidence: strings.json and translations include data_description keys for setup 
 Action: extend descriptions for all new fields.
 
 8. config entry data/options usage
-Status: Covered
-Evidence: integration stores setup values in ConfigEntry.data and runtime object in ConfigEntry.runtime_data.
-Action: keep immutable config in data/options and runtime state in runtime_data.
+Status: Missing
+Evidence: connection data and adjustable feature settings are all stored in ConfigEntry.data; ConfigEntry.options is not used.
+Action: keep the webserver address in ConfigEntry.data and migrate adjustable feature settings to ConfigEntry.options.
 
 9. dependency-transparency
 Status: Covered
@@ -59,6 +59,16 @@ Action: keep dependency notes aligned with future code changes.
 Status: N/A
 Evidence: integration has no custom service actions.
 Action: checklist can be treated as satisfied-by-scope; if actions are added later, document every action with parameters and examples.
+
+10a. docs-triggers
+Status: N/A
+Evidence: integration provides entities but does not register custom automation triggers.
+Action: checklist can be treated as satisfied-by-scope; if custom triggers are added, document every trigger with parameters and UI/YAML examples.
+
+10b. docs-conditions
+Status: N/A
+Evidence: integration provides entities but does not register custom automation conditions.
+Action: checklist can be treated as satisfied-by-scope; if custom conditions are added, document every condition with parameters and UI/YAML examples.
 
 11. docs-high-level-description
 Status: Covered
@@ -159,7 +169,7 @@ Action: checklist can be treated as satisfied-by-scope; if auth is introduced, a
 
 10. test-coverage
 Status: Covered
-Evidence: pytest suite covers config flow, setup/unload, device info, and core integration modules, achieving >95% test coverage.
+Evidence: 351 tests passed with 99% total integration coverage on 2026-07-20; config_flow.py remains at 100%.
 Action: maintain high test coverage as new platforms and features are introduced.
 
 ## Gold
@@ -240,9 +250,9 @@ Evidence: no clear low-value/noisy entities were identified for default disablem
 Action: suggested candidate only if needed in future: optional hub connectivity helper entity; keep thermostat offset enabled (user-facing).
 
 16. entity-translations
-Status: Missing
-Evidence: only thermostat has translation_key; most entities still use runtime/manual names.
-Action: add entity translation keys and strings for each stable entity type.
+Status: Covered
+Evidence: integration-owned device and secondary-entity labels use translation keys with English and Italian strings; primary entities use device names.
+Action: keep translation-loader and naming-registry migration tests current when adding entity types.
 
 17. exception-translations
 Status: Missing
@@ -277,9 +287,9 @@ Evidence: internal client and integration paths are async and aiohttp-based.
 Action: keep all I/O async-only.
 
 2. inject-websession
-Status: Missing
-Evidence: AveWebServer creates ad-hoc aiohttp.ClientSession instances instead of receiving HA session.
-Action: inject and reuse async_get_clientsession(hass) or async_create_clientsession where isolation is required.
+Status: Covered
+Evidence: setup and config flows inject Home Assistant's shared session into AveWebServer; HTTP and WebSocket traffic reuse it, and disconnect closes only the WebSocket connection.
+Action: preserve Home Assistant's ownership of the shared session and never close it from the integration.
 
 3. strict-typing
 Status: Missing
