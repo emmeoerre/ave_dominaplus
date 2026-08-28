@@ -453,11 +453,12 @@ class AveThermostat(ClimateEntity):
             # Offset is not directly represented in Home Assistant
             self.ave_properties.offset = value
         elif property_name == "season":
-            if value == "0":
-                self._attr_hvac_mode = HVACMode.COOL
-            elif value == "1":
-                self._attr_hvac_mode = HVACMode.HEAT
             self.ave_properties.season = value
+            if self.ave_properties.local_off != 1:
+                if value == "0":
+                    self._attr_hvac_mode = HVACMode.COOL
+                elif value == "1":
+                    self._attr_hvac_mode = HVACMode.HEAT
         elif property_name == "window_state":
             # Window state is not directly represented in Home Assistant
             pass
@@ -610,10 +611,15 @@ class AveThermostat(ClimateEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional state attributes."""
+        season = {
+            "0": HVACMode.COOL,
+            "1": HVACMode.HEAT,
+        }.get(str(self.ave_properties.season))
         return {
             "AVE_family": self.family,
             "AVE_device_id": self.ave_properties.device_id,
             "AVE_name": self.ave_properties.device_name,
+            "season": season,
             "Temperature offset": self.ave_properties.offset,
             "AVE webserver MAC": self._webserver.mac_address
             if self._webserver

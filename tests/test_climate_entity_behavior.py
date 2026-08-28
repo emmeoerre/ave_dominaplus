@@ -120,6 +120,25 @@ def test_update_specific_property_local_off_and_season(hass: HomeAssistant) -> N
     assert thermostat.hvac_mode == HVACMode.COOL
 
 
+def test_season_update_while_local_off_preserves_off_mode(
+    hass: HomeAssistant,
+) -> None:
+    """Season updates received after local-off should not turn the entity on."""
+    server = _new_server(hass)
+    thermostat = AveThermostat("uid", AVE_FAMILY_THERMOSTAT, _props(season="1"), server)
+    thermostat.async_write_ha_state = Mock()
+
+    thermostat.update_specific_property("local_off", 1)
+    thermostat.update_specific_property("season", "0")
+
+    assert thermostat.hvac_mode == HVACMode.OFF
+    assert thermostat.ave_properties.season == "0"
+    assert thermostat.extra_state_attributes["season"] == HVACMode.COOL
+
+    thermostat.update_specific_property("local_off", 0)
+    assert thermostat.hvac_mode == HVACMode.COOL
+
+
 def test_update_from_fan_level_covers_all_modes(hass: HomeAssistant) -> None:
     """Fan-level mapping should expose all expected fan mode labels."""
     server = _new_server(hass)
