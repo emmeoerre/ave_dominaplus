@@ -139,6 +139,15 @@ integration does not rename existing entity IDs, so automations and dashboards
 continue to work. New installations receive the cleaner naming scheme. Names set
 by a user in Home Assistant are preserved for both entities and devices.
 
+Primary entities also inherit their device's area. On setup, legacy area
+assignments on unnamed primary entities are moved to the AVE endpoint device
+when its area is unset or already matches. Entity IDs and names are preserved.
+
+If Home Assistant reports **"Entity has an area but no name of its own"** and
+the device and entity have conflicting areas, choose the intended area on the
+device and clear the entity's area so it inherits from the device. If the entity
+needs a separate area, give it its own name in its entity settings instead.
+
 ---
 
 ## ❓ Frequently asked questions
