@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+import logging
 from typing import Any
 
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC, DeviceInfo
 
 from .const import (
@@ -23,6 +24,8 @@ from .const import (
     DOMAIN,
 )
 from .web_server import AveWebServer
+
+_LOGGER = logging.getLogger(__name__)
 
 _GROUP_LIGHTING = "lighting"
 _GROUP_COVERS = "covers"
@@ -254,6 +257,57 @@ def build_endpoint_device_info(
         via_device=via_device,
         configuration_url=f"http://{server.settings.host}",
     )
+
+
+def migrate_primary_entity_areas(hass: HomeAssistant, config_entry_id: str) -> None:
+    """Move legacy primary entity areas to their devices without changing rooms.
+
+    Unnamed primary entities represent their device and must inherit its area.
+    Conflicting assignments require a user choice and are left untouched.
+    """
+    entity_registry = er.async_get(hass)
+    device_registry = dr.async_get(hass)
+    entities_by_device: dict[str, list[er.RegistryEntry]] = {}
+    for entity in er.async_entries_for_config_entry(entity_registry, config_entry_id):
+        if (
+            entity.platform != DOMAIN
+            or entity.domain not in {"switch", "light", "cover", "climate"}
+            or not entity.has_entity_name
+            or entity.name is not None
+            or entity.original_name is not None
+            or entity.area_id is None
+            or entity.device_id is None
+        ):
+            continue
+        entities_by_device.setdefault(entity.device_id, []).append(entity)
+
+    for device_id, entities in entities_by_device.items():
+        device = device_registry.async_get(device_id)
+        if (
+            device is None
+            or config_entry_id not in device.config_entries
+            or not any(identifier[0] == DOMAIN for identifier in device.identifiers)
+            or any(
+                is_structural_parent_identifier(identifier)
+                for identifier in device.identifiers
+            )
+        ):
+            continue
+        areas = {entity.area_id for entity in entities}
+        if len(areas) != 1 or device.area_id not in {None, entities[0].area_id}:
+            _LOGGER.warning(
+                "Cannot migrate entity areas for AVE device %s: conflicting area "
+                "assignments; set the device area and clear the unnamed entity's "
+                "area, or give the entity its own name in Home Assistant",
+                device_id,
+            )
+            continue
+
+        area_id = entities[0].area_id
+        if device.area_id is None:
+            device_registry.async_update_device(device_id, area_id=area_id)
+        for entity in entities:
+            entity_registry.async_update_entity(entity.entity_id, area_id=None)
 
 
 def ensure_lighting_parent_device(server: AveWebServer, config_entry_id: str) -> None:

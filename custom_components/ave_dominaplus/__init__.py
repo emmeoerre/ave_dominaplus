@@ -15,7 +15,7 @@ from homeassistant.helpers import (
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import DOMAIN
-from .device_info import is_structural_parent_identifier
+from .device_info import is_structural_parent_identifier, migrate_primary_entity_areas
 from .web_server import AveWebServer
 
 if TYPE_CHECKING:
@@ -57,6 +57,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await webserver.disconnect()
         raise
 
+    migrate_primary_entity_areas(hass, entry.entry_id)
     await _async_cleanup_stale_devices(hass, entry)
 
     entry.async_create_background_task(
