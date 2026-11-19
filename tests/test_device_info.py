@@ -6,6 +6,9 @@ from types import SimpleNamespace
 from typing import cast
 from unittest.mock import Mock, patch
 
+import pytest
+from pytest_homeassistant_custom_component.common import MockConfigEntry
+
 from custom_components.ave_dominaplus.const import (
     AVE_FAMILY_DIMMER,
     AVE_FAMILY_MOTION_SENSOR,
@@ -19,13 +22,15 @@ from custom_components.ave_dominaplus.device_info import (
     build_endpoint_device_info,
     build_hub_device_info,
     ensure_covers_parent_device,
+    ensure_hub_device,
     ensure_lighting_parent_device,
     ensure_scenarios_parent_device,
     ensure_thermostats_parent_device,
     sync_device_registry_name,
 )
 from custom_components.ave_dominaplus.web_server import AveWebServer
-from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC, DeviceInfo
 
 
 def _server_stub(
@@ -41,7 +46,38 @@ def _server_stub(
         config_entry_unique_id=config_entry_unique_id,
         config_entry_id=config_entry_id,
         settings=SimpleNamespace(host=host),
+        hass=None,
     )
+
+
+def _assert_parent_without_hass(info: DeviceInfo, identifier: tuple[str, str]) -> None:
+    """IDs need a registry; older HA can still accept the identifier directly."""
+    if "via_device_id" in DeviceInfo.__annotations__:
+        assert "via_device" not in info
+        assert "via_device_id" not in info
+    else:
+        assert info.get("via_device") == identifier
+
+
+def _expected_hub_link(registry) -> dict:
+    """Expect the parent identifier or registry ID appropriate for this HA API."""
+    identifier = (DOMAIN, "hub_aa:bb:cc:dd:ee:ff")
+    if "via_device_id" in DeviceInfo.__annotations__:
+        registry.async_get_devices.assert_called_once_with(
+            identifiers={identifier}, config_entry_id="entry-123"
+        )
+        return {"via_device_id": "hub-id"}
+    return {"via_device": identifier}
+
+
+def _registered_device(registry, identifier, config_entry_id):
+    """Look up test devices using the nondeprecated API available in this HA."""
+    if hasattr(registry, "async_get_devices"):
+        matches = registry.async_get_devices(
+            identifiers={identifier}, config_entry_id=config_entry_id
+        )
+        return matches[0] if len(matches) == 1 else None
+    return registry.async_get_device(identifiers={identifier})
 
 
 def test_device_info_uses_mac_identifier_and_connection() -> None:
@@ -100,7 +136,7 @@ def test_endpoint_device_info_is_nested_under_hub() -> None:
     assert info.get("identifiers") == {
         (DOMAIN, "endpoint_aa:bb:cc:dd:ee:ff_light_2_45")
     }
-    assert info.get("via_device") == (DOMAIN, "endpoint_aa:bb:cc:dd:ee:ff_lighting")
+    _assert_parent_without_hass(info, (DOMAIN, "endpoint_aa:bb:cc:dd:ee:ff_lighting"))
     assert info.get("name") is None
     assert info.get("translation_key") == "dimmer"
     assert info.get("translation_placeholders") == {"id": "45"}
@@ -120,7 +156,7 @@ def test_endpoint_onoff_light_uses_own_child_identifier() -> None:
     )
 
     assert info.get("identifiers") == {(DOMAIN, "endpoint_entry-123_light_1_11")}
-    assert info.get("via_device") == (DOMAIN, "endpoint_entry-123_lighting")
+    _assert_parent_without_hass(info, (DOMAIN, "endpoint_entry-123_lighting"))
     assert info.get("name") is None
     assert info.get("translation_key") == "light"
     assert info.get("translation_placeholders") == {"id": "11"}
@@ -133,6 +169,7 @@ def test_ensure_lighting_parent_device_registers_under_hub(hass) -> None:
 
     with patch("custom_components.ave_dominaplus.device_info.dr.async_get") as get_reg:
         registry = get_reg.return_value
+        registry.async_get_devices.return_value = [SimpleNamespace(id="hub-id")]
         ensure_lighting_parent_device(cast(AveWebServer, server), "entry-123")
 
     registry.async_get_or_create.assert_called_once_with(
@@ -141,7 +178,7 @@ def test_ensure_lighting_parent_device_registers_under_hub(hass) -> None:
         manufacturer="AVE",
         model="AVE dominaplus lighting",
         translation_key="lighting",
-        via_device=(DOMAIN, "hub_aa:bb:cc:dd:ee:ff"),
+        **_expected_hub_link(registry),
         configuration_url="http://10.0.0.99",
     )
 
@@ -153,6 +190,7 @@ def test_ensure_scenarios_parent_device_registers_under_hub(hass) -> None:
 
     with patch("custom_components.ave_dominaplus.device_info.dr.async_get") as get_reg:
         registry = get_reg.return_value
+        registry.async_get_devices.return_value = [SimpleNamespace(id="hub-id")]
         ensure_scenarios_parent_device(cast(AveWebServer, server), "entry-123")
 
     registry.async_get_or_create.assert_called_once_with(
@@ -161,7 +199,7 @@ def test_ensure_scenarios_parent_device_registers_under_hub(hass) -> None:
         manufacturer="AVE",
         model="AVE dominaplus scenarios",
         translation_key="scenarios",
-        via_device=(DOMAIN, "hub_aa:bb:cc:dd:ee:ff"),
+        **_expected_hub_link(registry),
         configuration_url="http://10.0.0.99",
     )
 
@@ -173,6 +211,7 @@ def test_ensure_covers_parent_device_registers_under_hub(hass) -> None:
 
     with patch("custom_components.ave_dominaplus.device_info.dr.async_get") as get_reg:
         registry = get_reg.return_value
+        registry.async_get_devices.return_value = [SimpleNamespace(id="hub-id")]
         ensure_covers_parent_device(cast(AveWebServer, server), "entry-123")
 
     registry.async_get_or_create.assert_called_once_with(
@@ -181,7 +220,7 @@ def test_ensure_covers_parent_device_registers_under_hub(hass) -> None:
         manufacturer="AVE",
         model="AVE dominaplus covers",
         translation_key="covers",
-        via_device=(DOMAIN, "hub_aa:bb:cc:dd:ee:ff"),
+        **_expected_hub_link(registry),
         configuration_url="http://10.0.0.99",
     )
 
@@ -193,6 +232,7 @@ def test_ensure_thermostats_parent_device_registers_under_hub(hass) -> None:
 
     with patch("custom_components.ave_dominaplus.device_info.dr.async_get") as get_reg:
         registry = get_reg.return_value
+        registry.async_get_devices.return_value = [SimpleNamespace(id="hub-id")]
         ensure_thermostats_parent_device(cast(AveWebServer, server), "entry-123")
 
     registry.async_get_or_create.assert_called_once_with(
@@ -201,7 +241,7 @@ def test_ensure_thermostats_parent_device_registers_under_hub(hass) -> None:
         manufacturer="AVE",
         model="AVE dominaplus thermostats",
         translation_key="thermostats",
-        via_device=(DOMAIN, "hub_aa:bb:cc:dd:ee:ff"),
+        **_expected_hub_link(registry),
         configuration_url="http://10.0.0.99",
     )
 
@@ -227,6 +267,9 @@ def test_sync_device_registry_name_updates_name_and_via() -> None:
         return None
 
     registry.async_get_device = Mock(side_effect=_get_device)
+    registry.async_get_devices = Mock(
+        side_effect=lambda **kwargs: [_get_device(identifiers=kwargs["identifiers"])]
+    )
     registry.async_update_device = Mock()
 
     sync_device_registry_name(
@@ -267,6 +310,9 @@ def test_sync_device_registry_name_respects_user_name_but_updates_via() -> None:
         return None
 
     registry.async_get_device = Mock(side_effect=_get_device)
+    registry.async_get_devices = Mock(
+        side_effect=lambda **kwargs: [_get_device(identifiers=kwargs["identifiers"])]
+    )
     registry.async_update_device = Mock()
 
     sync_device_registry_name(
@@ -296,7 +342,7 @@ def test_endpoint_device_info_uses_entry_fallback_identifier() -> None:
     )
 
     assert info.get("identifiers") == {(DOMAIN, "endpoint_entry-123_thermostat_7")}
-    assert info.get("via_device") == (DOMAIN, "endpoint_entry-123_thermostats")
+    _assert_parent_without_hass(info, (DOMAIN, "endpoint_entry-123_thermostats"))
     assert info.get("name") is None
     assert info.get("translation_key") == "thermostat"
     assert info.get("translation_placeholders") == {"id": "7"}
@@ -313,7 +359,7 @@ def test_endpoint_cover_uses_per_device_identifier_and_parent() -> None:
     )
 
     assert info.get("identifiers") == {(DOMAIN, "endpoint_entry-123_cover_3_14")}
-    assert info.get("via_device") == (DOMAIN, "endpoint_entry-123_covers")
+    _assert_parent_without_hass(info, (DOMAIN, "endpoint_entry-123_covers"))
     assert info.get("name") is None
     assert info.get("translation_key") == "shutter"
     assert info.get("translation_placeholders") == {"id": "14"}
@@ -376,7 +422,7 @@ def test_endpoint_scenario_name_falls_back_to_device_id() -> None:
     )
 
     assert info.get("identifiers") == {(DOMAIN, "endpoint_entry-123_scenario_29")}
-    assert info.get("via_device") == (DOMAIN, "endpoint_entry-123_scenarios")
+    _assert_parent_without_hass(info, (DOMAIN, "endpoint_entry-123_scenarios"))
     assert info.get("name") is None
     assert info.get("translation_key") == "scenario"
     assert info.get("translation_placeholders") == {"id": "29"}
@@ -410,3 +456,124 @@ def test_endpoint_scenario_name_keeps_existing_prefix() -> None:
     )
 
     assert info.get("name") == "Scenario Night"
+
+
+@pytest.mark.parametrize(
+    ("family", "ensure_parent", "group"),
+    [
+        (AVE_FAMILY_ONOFFLIGHTS, ensure_lighting_parent_device, "lighting"),
+        (AVE_FAMILY_DIMMER, ensure_lighting_parent_device, "lighting"),
+        (AVE_FAMILY_SHUTTER_ROLLING, ensure_covers_parent_device, "covers"),
+        (AVE_FAMILY_THERMOSTAT, ensure_thermostats_parent_device, "thermostats"),
+        (AVE_FAMILY_SCENARIO, ensure_scenarios_parent_device, "scenarios"),
+        (AVE_FAMILY_MOTION_SENSOR, None, None),
+    ],
+)
+async def test_device_hierarchy_preserves_ids_and_user_names(
+    hass, caplog, family, ensure_parent, group
+) -> None:
+    """Both HA APIs must register the same hub/group/endpoint hierarchy."""
+    entry = MockConfigEntry(domain=DOMAIN, title="AVE test")
+    entry.add_to_hass(hass)
+    server = _server_stub(mac="aa:bb:cc:dd:ee:ff", config_entry_id=entry.entry_id)
+    server.hass = hass
+    registry = dr.async_get(hass)
+
+    with patch.object(
+        registry, "async_get_or_create", wraps=registry.async_get_or_create
+    ) as register_device:
+        ensure_hub_device(server, entry.entry_id)
+        hub = _registered_device(
+            registry, (DOMAIN, "hub_aa:bb:cc:dd:ee:ff"), entry.entry_id
+        )
+        assert hub is not None
+        parent = hub
+        if ensure_parent is not None:
+            ensure_parent(server, entry.entry_id)
+            parent = _registered_device(
+                registry,
+                (DOMAIN, f"endpoint_aa:bb:cc:dd:ee:ff_{group}"),
+                entry.entry_id,
+            )
+            assert parent is not None
+            assert parent.via_device_id == hub.id
+
+        info = build_endpoint_device_info(server, family, 34, ave_name="Studio")
+        if "via_device_id" in DeviceInfo.__annotations__:
+            assert "via_device" not in info
+            assert info["via_device_id"] == parent.id
+        endpoint = registry.async_get_or_create(config_entry_id=entry.entry_id, **info)
+        assert endpoint.via_device_id == parent.id
+        registry.async_update_device(endpoint.id, name_by_user="My endpoint")
+
+        sync_device_registry_name(hass, info, config_entry_id=entry.entry_id)
+        updated = registry.async_get(endpoint.id)
+        assert updated is not None
+        assert updated.id == endpoint.id
+        assert updated.name_by_user == "My endpoint"
+        assert updated.via_device_id == parent.id
+        if "via_device_id" in DeviceInfo.__annotations__:
+            assert all(
+                "via_device" not in call.kwargs
+                for call in register_device.call_args_list
+            )
+    assert not any(
+        record.name == "homeassistant.helpers.frame"
+        and "deprecated" in record.getMessage()
+        for record in caplog.records
+    )
+
+
+@pytest.mark.skipif(
+    "via_device_id" not in DeviceInfo.__annotations__,
+    reason="Requires config-entry-scoped device identifiers",
+)
+async def test_parent_lookup_stays_within_config_entry(hass) -> None:
+    """Another entry using the same hub identifier must not become the parent."""
+    entry = MockConfigEntry(domain=DOMAIN, title="AVE test")
+    other_entry = MockConfigEntry(domain=DOMAIN, title="Other AVE entry")
+    entry.add_to_hass(hass)
+    other_entry.add_to_hass(hass)
+    server = _server_stub(mac="aa:bb:cc:dd:ee:ff", config_entry_id=entry.entry_id)
+    server.hass = hass
+    registry = dr.async_get(hass)
+    other_hub = registry.async_get_or_create(
+        config_entry_id=other_entry.entry_id, **build_hub_device_info(server)
+    )
+    ensure_hub_device(server, entry.entry_id)
+    own_hub = _registered_device(
+        registry, (DOMAIN, "hub_aa:bb:cc:dd:ee:ff"), entry.entry_id
+    )
+    assert own_hub is not None
+    assert own_hub.id != other_hub.id
+
+    ensure_lighting_parent_device(server, entry.entry_id)
+    parent = _registered_device(
+        registry, (DOMAIN, "endpoint_aa:bb:cc:dd:ee:ff_lighting"), entry.entry_id
+    )
+    assert parent is not None
+    assert parent.via_device_id == own_hub.id
+
+
+def test_missing_parent_does_not_clear_existing_link(hass, monkeypatch) -> None:
+    """Metadata sync must omit an unresolved parent rather than detach a device."""
+    monkeypatch.setattr(
+        "custom_components.ave_dominaplus.device_info._VIA_DEVICE_ID_SUPPORTED", True
+    )
+    registry = Mock()
+    registry.async_get_device.return_value = None
+    registry.async_get_devices.return_value = []
+
+    sync_device_registry_name(
+        hass,
+        {
+            "identifiers": {(DOMAIN, "endpoint_test_light_1_34")},
+            "via_device": (DOMAIN, "missing_parent"),
+        },
+        config_entry_id="entry-123",
+        device_registry_getter=lambda _hass: registry,
+    )
+
+    kwargs = registry.async_get_or_create.call_args.kwargs
+    assert "via_device" not in kwargs
+    assert "via_device_id" not in kwargs

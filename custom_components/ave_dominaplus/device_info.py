@@ -26,6 +26,7 @@ from .const import (
 from .web_server import AveWebServer
 
 _LOGGER = logging.getLogger(__name__)
+_VIA_DEVICE_ID_SUPPORTED = "via_device_id" in DeviceInfo.__annotations__
 
 _GROUP_LIGHTING = "lighting"
 _GROUP_COVERS = "covers"
@@ -193,6 +194,44 @@ def _thermostats_parent_device_identifier(server: AveWebServer) -> tuple[str, st
     return (DOMAIN, f"endpoint_{_hub_identifier(server)}_{_GROUP_THERMOSTATS}")
 
 
+def _find_device(
+    device_registry: dr.DeviceRegistry,
+    identifiers: set[tuple[str, str]],
+    config_entry_id: str | None = None,
+) -> dr.DeviceEntry | None:
+    """Find an unambiguous device, scoped to the config entry when available."""
+    if not _VIA_DEVICE_ID_SUPPORTED:
+        return device_registry.async_get_device(identifiers=identifiers)
+    matches = device_registry.async_get_devices(
+        identifiers=identifiers, config_entry_id=config_entry_id
+    )
+    return matches[0] if len(matches) == 1 else None
+
+
+def _via_device_info(
+    hass: HomeAssistant | None,
+    identifier: tuple[str, str] | None,
+    *,
+    config_entry_id: str | None = None,
+    device_registry: dr.DeviceRegistry | None = None,
+) -> dict[str, Any]:
+    """Resolve the parent ID, keeping identifier links only for older HA versions."""
+    if identifier is None:
+        return {}
+    if not _VIA_DEVICE_ID_SUPPORTED:
+        return {"via_device": identifier}
+    if hass is None:
+        return {}
+
+    if device_registry is None:
+        device_registry = dr.async_get(hass)
+    parent = _find_device(device_registry, {identifier}, config_entry_id)
+    if parent is None:
+        # Do not clear an existing link when the parent is not registered yet.
+        return {}
+    return {"via_device_id": parent.id}
+
+
 def build_hub_device_info(server: AveWebServer) -> DeviceInfo:
     """Return device_info for the AVE hub.
 
@@ -209,6 +248,17 @@ def build_hub_device_info(server: AveWebServer) -> DeviceInfo:
         model="AVE dominaplus webserver",
         translation_key="hub",
         configuration_url=f"http://{server.settings.host}",
+    )
+
+
+def ensure_hub_device(server: AveWebServer, config_entry_id: str) -> None:
+    """Register the hub before platforms resolve their parent device IDs."""
+    if server.hass is None:
+        return
+    device_registry = dr.async_get(server.hass)
+    device_registry.async_get_or_create(
+        config_entry_id=config_entry_id,
+        **build_hub_device_info(server),
     )
 
 
@@ -254,7 +304,9 @@ def build_endpoint_device_info(
         name=name,
         translation_key=translation_key,
         translation_placeholders=translation_placeholders,
-        via_device=via_device,
+        **_via_device_info(
+            server.hass, via_device, config_entry_id=server.config_entry_id
+        ),
         configuration_url=f"http://{server.settings.host}",
     )
 
@@ -323,7 +375,12 @@ def ensure_lighting_parent_device(server: AveWebServer, config_entry_id: str) ->
             manufacturer="AVE",
             model=_GROUP_MODELS[_GROUP_LIGHTING],
             translation_key=_GROUP_LIGHTING,
-            via_device=_hub_device_identifier(server),
+            **_via_device_info(
+                server.hass,
+                _hub_device_identifier(server),
+                config_entry_id=config_entry_id,
+                device_registry=device_registry,
+            ),
             configuration_url=f"http://{server.settings.host}",
         )
     except HomeAssistantError:
@@ -344,7 +401,12 @@ def ensure_scenarios_parent_device(server: AveWebServer, config_entry_id: str) -
             manufacturer="AVE",
             model=_GROUP_MODELS[_GROUP_SCENARIOS],
             translation_key=_GROUP_SCENARIOS,
-            via_device=_hub_device_identifier(server),
+            **_via_device_info(
+                server.hass,
+                _hub_device_identifier(server),
+                config_entry_id=config_entry_id,
+                device_registry=device_registry,
+            ),
             configuration_url=f"http://{server.settings.host}",
         )
     except HomeAssistantError:
@@ -365,7 +427,12 @@ def ensure_covers_parent_device(server: AveWebServer, config_entry_id: str) -> N
             manufacturer="AVE",
             model=_GROUP_MODELS[_GROUP_COVERS],
             translation_key=_GROUP_COVERS,
-            via_device=_hub_device_identifier(server),
+            **_via_device_info(
+                server.hass,
+                _hub_device_identifier(server),
+                config_entry_id=config_entry_id,
+                device_registry=device_registry,
+            ),
             configuration_url=f"http://{server.settings.host}",
         )
     except HomeAssistantError:
@@ -388,7 +455,12 @@ def ensure_thermostats_parent_device(
             manufacturer="AVE",
             model=_GROUP_MODELS[_GROUP_THERMOSTATS],
             translation_key=_GROUP_THERMOSTATS,
-            via_device=_hub_device_identifier(server),
+            **_via_device_info(
+                server.hass,
+                _hub_device_identifier(server),
+                config_entry_id=config_entry_id,
+                device_registry=device_registry,
+            ),
             configuration_url=f"http://{server.settings.host}",
         )
     except HomeAssistantError:
@@ -407,7 +479,7 @@ def sync_device_registry_name(
     """Sync registry device metadata from device_info.
 
     Updates the device name unless user customized it in HA, and updates
-    parent linkage (via_device) when resolvable.
+    parent linkage when resolvable.
     """
     if hass is None:
         return
@@ -418,6 +490,15 @@ def sync_device_registry_name(
 
     get_registry = device_registry_getter or dr.async_get
     device_registry = get_registry(hass)
+    if _VIA_DEVICE_ID_SUPPORTED and "via_device_id" in device_info:
+        via_info = {"via_device_id": device_info["via_device_id"]}
+    else:
+        via_info = _via_device_info(
+            hass,
+            device_info.get("via_device"),
+            config_entry_id=config_entry_id,
+            device_registry=device_registry,
+        )
     if config_entry_id:
         try:
             device_registry.async_get_or_create(
@@ -430,7 +511,7 @@ def sync_device_registry_name(
                 name=device_info.get("name"),
                 translation_key=device_info.get("translation_key"),
                 translation_placeholders=device_info.get("translation_placeholders"),
-                via_device=device_info.get("via_device"),
+                **via_info,
             )
         except HomeAssistantError:
             # Tests and early setup may not have a registered config entry yet.
@@ -438,7 +519,7 @@ def sync_device_registry_name(
         else:
             return
 
-    device_entry = device_registry.async_get_device(identifiers=resolved_identifiers)
+    device_entry = _find_device(device_registry, resolved_identifiers, config_entry_id)
     if device_entry is None:
         return
 
@@ -452,15 +533,21 @@ def sync_device_registry_name(
     ):
         updates["name"] = resolved_name
 
+    via_device_id = via_info.get("via_device_id")
     via_identifier = device_info.get("via_device")
-    if isinstance(via_identifier, tuple) and len(via_identifier) == 2:
-        via_entry = device_registry.async_get_device(identifiers={via_identifier})
-        current_via_device_id = getattr(device_entry, "via_device_id", None)
-        if via_entry is not None and via_entry.id not in {
-            device_entry.id,
-            current_via_device_id,
-        }:
-            updates["via_device_id"] = via_entry.id
+    if (
+        via_device_id is None
+        and isinstance(via_identifier, tuple)
+        and len(via_identifier) == 2
+    ):
+        via_entry = _find_device(device_registry, {via_identifier}, config_entry_id)
+        if via_entry is not None:
+            via_device_id = via_entry.id
+    if via_device_id is not None and via_device_id not in {
+        device_entry.id,
+        device_entry.via_device_id,
+    }:
+        updates["via_device_id"] = via_device_id
 
     if updates:
         device_registry.async_update_device(device_id=device_entry.id, **updates)

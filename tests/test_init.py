@@ -17,6 +17,7 @@ from custom_components.ave_dominaplus import (
 from custom_components.ave_dominaplus.const import DOMAIN
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.helpers import device_registry as dr
 
 
 async def test_async_setup_returns_true(hass: HomeAssistant) -> None:
@@ -33,7 +34,22 @@ async def test_async_setup_entry_success(
     mock_webserver.authenticate.return_value = True
     mock_webserver.disconnect = AsyncMock()
     mock_webserver.start = AsyncMock()
+    mock_webserver.hass = hass
+    mock_webserver.mac_address = "aa:bb:cc:dd:ee:ff"
+    mock_webserver.settings.host = "192.168.1.10"
+    mock_config_entry.add_to_hass(hass)
     session = Mock()
+
+    async def forward_with_registered_hub(*_args) -> None:
+        """The hub must be available when platforms start registering devices."""
+        registry = dr.async_get(hass)
+        identifiers = {(DOMAIN, "hub_aa:bb:cc:dd:ee:ff")}
+        if hasattr(registry, "async_get_devices"):
+            assert registry.async_get_devices(
+                identifiers=identifiers, config_entry_id=mock_config_entry.entry_id
+            )
+        else:
+            assert registry.async_get_device(identifiers=identifiers) is not None
 
     with (
         patch(
@@ -46,7 +62,7 @@ async def test_async_setup_entry_success(
         patch.object(
             hass.config_entries,
             "async_forward_entry_setups",
-            new=AsyncMock(return_value=True),
+            new=AsyncMock(side_effect=forward_with_registered_hub),
         ) as forward_setups,
         patch.object(
             mock_config_entry,
@@ -102,6 +118,10 @@ async def test_async_setup_entry_disconnects_on_forward_error(
     mock_webserver = AsyncMock()
     mock_webserver.authenticate.return_value = True
     mock_webserver.disconnect = AsyncMock()
+    mock_webserver.hass = hass
+    mock_webserver.mac_address = "aa:bb:cc:dd:ee:ff"
+    mock_webserver.settings.host = "192.168.1.10"
+    mock_config_entry.add_to_hass(hass)
 
     with (
         patch(
