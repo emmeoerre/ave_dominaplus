@@ -52,13 +52,18 @@ def _build_discovery_info(
 
 async def test_user_flow_success(hass: HomeAssistant) -> None:
     """Test successful user-initiated config flow."""
-    with patch(
-        "custom_components.ave_dominaplus.config_flow.AveWsConfigFlow.validate_input",
-        new=AsyncMock(
-            return_value={
-                "title": "AVE webserver aa:bb:cc:dd:ee:ff",
-                "mac_address": "aa:bb:cc:dd:ee:ff",
-            }
+    with (
+        patch(
+            "custom_components.ave_dominaplus.config_flow.AveWsConfigFlow.validate_input",
+            new=AsyncMock(
+                return_value={
+                    "title": "AVE webserver aa:bb:cc:dd:ee:ff",
+                    "mac_address": "aa:bb:cc:dd:ee:ff",
+                }
+            ),
+        ),
+        patch.object(
+            hass.config_entries, "async_setup", new=AsyncMock(return_value=True)
         ),
     ):
         result = await hass.config_entries.flow.async_init(
@@ -72,6 +77,7 @@ async def test_user_flow_success(hass: HomeAssistant) -> None:
             result["flow_id"],
             user_input=MOCK_USER_INPUT,
         )
+        await hass.async_block_till_done()
 
     assert result.get("type") is data_entry_flow.FlowResultType.CREATE_ENTRY
     assert result.get("title") == "AVE webserver aa:bb:cc:dd:ee:ff"
@@ -104,13 +110,18 @@ async def test_zeroconf_confirm_and_configure(hass: HomeAssistant) -> None:
     """Test zeroconf discovery confirm -> configure -> create entry path."""
     discovery_info = _build_discovery_info()
 
-    with patch(
-        "custom_components.ave_dominaplus.config_flow.AveWsConfigFlow.validate_input",
-        new=AsyncMock(
-            return_value={
-                "title": "AVE webserver aa:bb:cc:dd:ee:ff",
-                "mac_address": "aa:bb:cc:dd:ee:ff",
-            }
+    with (
+        patch(
+            "custom_components.ave_dominaplus.config_flow.AveWsConfigFlow.validate_input",
+            new=AsyncMock(
+                return_value={
+                    "title": "AVE webserver aa:bb:cc:dd:ee:ff",
+                    "mac_address": "aa:bb:cc:dd:ee:ff",
+                }
+            ),
+        ),
+        patch.object(
+            hass.config_entries, "async_setup", new=AsyncMock(return_value=True)
         ),
     ):
         result = await hass.config_entries.flow.async_init(
@@ -134,6 +145,7 @@ async def test_zeroconf_confirm_and_configure(hass: HomeAssistant) -> None:
             result["flow_id"],
             user_input=user_input,
         )
+        await hass.async_block_till_done()
 
     assert result.get("type") is data_entry_flow.FlowResultType.CREATE_ENTRY
     created_data = result.get("data")

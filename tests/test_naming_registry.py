@@ -138,7 +138,12 @@ async def test_device_naming_migration_preserves_user_name(hass) -> None:
         original_info,
         config_entry_id=entry.entry_id,
     )
-    device = registry.async_get_device(identifiers=original_info["identifiers"])
+    if hasattr(registry, "async_get_devices"):
+        device = registry.async_get_devices(
+            identifiers=original_info["identifiers"], config_entry_id=entry.entry_id
+        )[0]
+    else:
+        device = registry.async_get_device(identifiers=original_info["identifiers"])
     assert device is not None
     assert device.name == "Thermostat Studio"
     device_id = device.id
@@ -156,7 +161,7 @@ async def test_device_naming_migration_preserves_user_name(hass) -> None:
         config_entry_id=entry.entry_id,
     )
 
-    updated = registry.async_get_device(identifiers=updated_info["identifiers"])
+    updated = registry.async_get(device_id)
     assert updated is not None
     assert updated.id == device_id
     assert updated.name == "Thermostat Living"

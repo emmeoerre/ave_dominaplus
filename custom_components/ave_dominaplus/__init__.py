@@ -15,7 +15,11 @@ from homeassistant.helpers import (
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import DOMAIN
-from .device_info import is_structural_parent_identifier, migrate_primary_entity_areas
+from .device_info import (
+    ensure_hub_device,
+    is_structural_parent_identifier,
+    migrate_primary_entity_areas,
+)
 from .web_server import AveWebServer
 
 if TYPE_CHECKING:
@@ -52,6 +56,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     entry.runtime_data = webserver
     try:
+        ensure_hub_device(webserver, entry.entry_id)
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     except Exception:
         await webserver.disconnect()
